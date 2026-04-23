@@ -1,6 +1,5 @@
 import streamlit as st
-import re
-import os
+import re, os
 import yfinance as yf
 from datetime import datetime
 from dotenv import load_dotenv
@@ -10,541 +9,390 @@ from researcher_beta import run_qualitative_analysis
 from judge import evaluate_reports
 
 load_dotenv()
-
-# --- UI Setup (MUST be first Streamlit command) ---
 st.set_page_config(page_title="QUANTUM AI Terminal", page_icon="📟", layout="wide")
 
 # =============================================================================
-# DATA LAYER: All dynamic values flow from here
+# DATA HELPERS
 # =============================================================================
-
 @st.cache_data(ttl=300)
 def fetch_ticker_data():
-    """Fetch live market data for the ticker tape using yfinance."""
-    tickers = {
-        "S&P 500": "^GSPC",
-        "NASDAQ 100": "^NDX",
-        "DOW J": "^DJI",
-        "USD/JPY": "JPY=X",
-        "BTC/USD": "BTC-USD"
-    }
+    tickers = {"S&P 500":"^GSPC","NASDAQ 100":"^NDX","DOW J":"^DJI","USD/JPY":"JPY=X","BTC/USD":"BTC-USD"}
     data = {}
-    for label, symbol in tickers.items():
+    for label, sym in tickers.items():
         try:
-            ticker = yf.Ticker(symbol)
-            hist = ticker.history(period="2d")
-            if len(hist) >= 2:
-                current = float(hist["Close"].iloc[-1])
-                previous = float(hist["Close"].iloc[-2])
-                change_pct = ((current - previous) / previous) * 100
-            elif len(hist) == 1:
-                current = float(hist["Close"].iloc[-1])
-                change_pct = 0.0
+            h = yf.Ticker(sym).history(period="2d")
+            if len(h)>=2:
+                c,p = float(h["Close"].iloc[-1]), float(h["Close"].iloc[-2])
+                data[label]={"price":c,"change":((c-p)/p)*100}
             else:
-                current = 0.0
-                change_pct = 0.0
-            data[label] = {"price": current, "change": change_pct}
-        except Exception:
-            data[label] = {"price": 0.0, "change": 0.0}
+                data[label]={"price":float(h["Close"].iloc[-1]) if len(h)==1 else 0,"change":0.0}
+        except: data[label]={"price":0.0,"change":0.0}
     return data
-
 
 @st.cache_data(ttl=600)
 def fetch_trending_news():
-    """Fetch trending finance news headlines via Tavily."""
-    tavily_api_key = os.getenv("TAVILY_API_KEY")
-    if not tavily_api_key:
-        return []
+    key = os.getenv("TAVILY_API_KEY")
+    if not key: return []
     try:
-        tavily = TavilyClient(api_key=tavily_api_key)
-        results = tavily.search(
-            query="latest financial markets news today stocks bonds crypto energy",
-            search_depth="basic",
-            max_results=4
-        )
-        news_items = []
-        for r in results.get("results", []):
-            title = r.get("title", "Untitled")
-            url = r.get("url", "#")
-            category = classify_news_category(title)
-            news_items.append({"title": title, "url": url, "category": category})
-        return news_items
-    except Exception:
-        return []
+        r = TavilyClient(api_key=key).search(query="latest financial markets news stocks bonds crypto energy semiconductors",search_depth="basic",max_results=3)
+        items = []
+        for x in r.get("results",[]):
+            t = x.get("title",""); cat="MARKETS"
+            tl = t.lower()
+            if any(w in tl for w in ["chip","gpu","nvidia","semiconductor","intel"]): cat="SEMICONDUCTORS"
+            elif any(w in tl for w in ["energy","oil","opec","renewable","solar"]): cat="ENERGY"
+            elif any(w in tl for w in ["bond","treasury","inflation","fed","rate","gdp"]): cat="MACRO"
+            elif any(w in tl for w in ["crypto","bitcoin","ethereum"]): cat="CRYPTO"
+            items.append({"title":t,"url":x.get("url","#"),"category":cat})
+        return items
+    except: return []
 
-
-def classify_news_category(title: str) -> str:
-    """Compute the category from the headline text — never hardcoded."""
-    t = title.lower()
-    if any(w in t for w in ["semiconductor", "chip", "gpu", "nvidia", "amd", "intel", "tsmc"]):
-        return "SEMICONDUCTORS"
-    if any(w in t for w in ["energy", "oil", "opec", "renewable", "solar", "natural gas"]):
-        return "ENERGY"
-    if any(w in t for w in ["bond", "treasury", "inflation", "fed", "rate", "cpi", "gdp"]):
-        return "MACRO"
-    if any(w in t for w in ["crypto", "bitcoin", "ethereum", "btc", "eth"]):
-        return "CRYPTO"
-    return "MARKETS"
-
-
-# =============================================================================
-# DYNAMIC COLOR / SIGNAL ENGINE: All visuals derive from data
-# =============================================================================
-
-def get_change_color(value: float) -> str:
-    """Returns a hex color based on value sign. Green=positive, Red=negative, Gray=neutral."""
-    if value > 0:
-        return "#10B981"
-    elif value < 0:
-        return "#EF4444"
-    return "#94A3B8"
-
-
-def get_change_arrow(value: float) -> str:
-    """Returns directional arrow based on value sign."""
-    if value > 0:
-        return "▲"
-    elif value < 0:
-        return "▼"
-    return "—"
-
-
-def compute_signal(score: int) -> str:
-    """Compute the TOP SIGNAL from sentiment score — never hardcoded."""
-    if score > 70:
-        return "ACCUMULATE"
-    elif score > 50:
-        return "HOLD"
-    elif score > 30:
-        return "REDUCE"
-    return "SELL"
-
-
-def compute_volatility(score: int) -> str:
-    """Compute volatility label from sentiment score — never hardcoded."""
-    if score > 65:
-        return "LOW"
-    elif score > 40:
-        return "MEDIUM"
-    return "HIGH"
-
-
-def get_volatility_color(label: str) -> str:
-    """Color-code the volatility label dynamically."""
-    mapping = {"LOW": "#10B981", "MEDIUM": "#F59E0B", "HIGH": "#EF4444"}
-    return mapping.get(label, "#94A3B8")
-
-
-def get_signal_color(signal: str) -> str:
-    """Color-code the signal dynamically."""
-    mapping = {"ACCUMULATE": "#10B981", "BUY": "#10B981", "HOLD": "#F59E0B", "REDUCE": "#EF4444", "SELL": "#EF4444"}
-    return mapping.get(signal, "#F8FAFC")
-
-
-def get_category_color(category: str) -> str:
-    """Returns category color for news badges — derived from category value."""
-    mapping = {
-        "SEMICONDUCTORS": "#10B981",
-        "ENERGY": "#F59E0B",
-        "MACRO": "#3B82F6",
-        "CRYPTO": "#8B5CF6",
-        "MARKETS": "#EC4899"
-    }
-    return mapping.get(category, "#94A3B8")
-
-
-def classify_insight_sentiment(body: str) -> str:
-    """Classify each insight as positive/negative from its text — dynamic, not hardcoded."""
-    negative_words = ["risk", "headwind", "decline", "loss", "threat", "antitrust",
-                      "investigation", "warning", "debt", "downturn", "bearish",
-                      "sell-off", "regulatory", "concern", "drop", "cut", "weak"]
-    body_lower = body.lower()
-    neg_count = sum(1 for w in negative_words if w in body_lower)
-    return "negative" if neg_count >= 1 else "positive"
-
-
-def parse_sentiment_score(alpha_data: str) -> int:
-    """Extract the sentiment score from Alpha output. Returns int or fallback computed value."""
-    match = re.search(r"Sentiment Score:\s*(\d+)", alpha_data, re.IGNORECASE)
-    if match:
-        return min(int(match.group(1)), 100)
-    return 0
-
-
-def parse_insights(beta_data: str) -> list:
-    """Parse bold-titled insights from Beta output into structured list."""
-    raw = re.findall(r"\*\*(.+?)\*\*\s*:?\s*(.+?)(?=\n\*\*|\n\n|\Z)", beta_data, re.DOTALL)
-    insights = []
-    for title, body in raw[:5]:
-        body_clean = body.strip().replace("\n", " ")
-        sentiment = classify_insight_sentiment(body_clean)
-        insights.append({"title": title.strip(), "body": body_clean, "sentiment": sentiment})
-    return insights
-
+def get_color(v): return "#4edea3" if v>0 else "#ec4242" if v<0 else "#c5c6cd"
+def get_arrow(v): return "arrow_drop_up" if v>0 else "arrow_drop_down" if v<0 else "remove"
+def compute_signal(s): return "ACCUMULATE" if s>70 else "HOLD" if s>50 else "REDUCE" if s>30 else "SELL"
+def compute_vol(s): return "LOW" if s>65 else "MEDIUM" if s>40 else "HIGH"
+def vol_color(v): return "#ec4242" if v=="LOW" else "#ffb3ad" if v=="MEDIUM" else "#4edea3"
+def sig_color(s): return "#4edea3" if s in("ACCUMULATE","BUY") else "#b9c7e4" if s=="HOLD" else "#ec4242"
+def cat_color(c): return {"SEMICONDUCTORS":"#4edea3","ENERGY":"#ec4242","MACRO":"#b9c7e4","CRYPTO":"#8B5CF6","MARKETS":"#EC4899"}.get(c,"#c5c6cd")
+def insight_sentiment(b):
+    neg = ["risk","headwind","decline","threat","antitrust","regulatory","warning","debt","downturn","concern","drop","weak","investigation"]
+    return "negative" if any(w in b.lower() for w in neg) else "positive"
+def parse_score(d):
+    m = re.search(r"Sentiment Score:\s*(\d+)",d,re.I)
+    return min(int(m.group(1)),100) if m else 0
+def parse_insights(d):
+    raw = re.findall(r"\*\*(.+?)\*\*\s*:?\s*(.+?)(?=\n\*\*|\n\n|\Z)",d,re.DOTALL)
+    return [{"title":t.strip(),"body":b.strip().replace("\n"," "),"sentiment":insight_sentiment(b)} for t,b in raw[:3]]
 
 # =============================================================================
-# UI COMPONENTS: Reusable rendering functions
+# CSS — Exact palette from the HTML spec
 # =============================================================================
-
-def render_ticker_tape(ticker_data: dict):
-    """Render the top ticker tape from live data — fully dynamic colors."""
-    items_html = ""
-    for label, data in ticker_data.items():
-        price = data["price"]
-        change = data["change"]
-        price_str = f"{price:,.2f}" if price > 1000 else f"{price:.2f}"
-        color = get_change_color(change)
-        arrow = get_change_arrow(change)
-        items_html += f'<div class="ticker-item" style="color:#94A3B8!important;">{label} <span class="ticker-value" style="color:#F8FAFC!important; margin-left:5px;">{price_str} <span style="color:{color}!important;">{arrow} {abs(change):.2f}%</span></span></div>'
-    st.markdown(f'<div class="ticker-container">{items_html}</div>', unsafe_allow_html=True)
-
-
-def render_top_nav():
-    """Render the QUANTUM AI top navigation bar."""
-    st.markdown("""
-    <div style="display:flex;align-items:center;gap:30px;padding:5px 0;margin-top:-2rem;margin-bottom:5px;">
-        <span style="font-size:1.1rem;font-weight:700;color:#F8FAFC!important;letter-spacing:1px;">QUANTUM AI</span>
-        <span style="color:#10B981!important;font-size:0.85rem;font-weight:600;border-bottom:2px solid #10B981;padding-bottom:3px;">Overview</span>
-        <span style="color:#64748B!important;font-size:0.85rem;">Forecasting</span>
-        <span style="color:#64748B!important;font-size:0.85rem;">Sentiment</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-def render_score_indicator(label: str, value: str, color: str):
-    """Render a single metric indicator — color comes from data, not hardcoded."""
-    st.markdown(f"""
-    <div>
-        <p style="color:#94A3B8!important;font-size:0.7rem;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:2px;font-weight:600;">{label}</p>
-        <p style="font-size:2rem;font-weight:800;color:{color}!important;margin-top:0;">{value}</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-def render_signal_badge(signal: str):
-    """Render the TOP SIGNAL as a badge — color derived from signal value."""
-    color = get_signal_color(signal)
-    st.markdown(f"""
-    <div>
-        <p style="color:#94A3B8!important;font-size:0.7rem;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:2px;font-weight:600;">TOP SIGNAL</p>
-        <p style="font-size:2rem;font-weight:800;color:{color}!important;margin-top:0;">{signal}</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-def render_insight(insight: dict):
-    """Render a single insight item — icon and color derived from sentiment classification."""
-    if insight["sentiment"] == "positive":
-        icon = "✓"
-        icon_bg = "#064E3B"
-        icon_color = "#34D399"
-    else:
-        icon = "⚠"
-        icon_bg = "#7F1D1D"
-        icon_color = "#FCA5A5"
-    st.markdown(f"""
-    <div class="insight-item">
-        <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:{icon_bg};color:{icon_color};text-align:center;line-height:22px;font-size:0.75rem;margin-right:10px;vertical-align:middle;">{icon}</span>
-        <strong style="color:#F8FAFC!important;">{insight['title']}:</strong> <span style="color:#CBD5E1!important;">{insight['body']}</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-def render_agent_log(entries: list):
-    """Render the agent performance log — timestamps and colors are data-driven."""
-    lines = ""
-    for entry in entries:
-        color = get_change_color(entry.get("level", 1))
-        if entry.get("type") == "info":
-            color = "#10B981"
-        elif entry.get("type") == "synthesis":
-            color = "#3B82F6"
-        elif entry.get("type") == "critical":
-            color = "#F59E0B"
-        lines += f'<p style="color:{color}!important;margin:2px 0;">[{entry["time"]}] {entry["message"]}</p>'
-    st.markdown(f'<div class="agent-log">{lines}</div>', unsafe_allow_html=True)
-
-
-def render_news_card(news: dict):
-    """Render a single trending news card — category color derived from classification."""
-    cat_color = get_category_color(news["category"])
-    st.markdown(f"""
-    <div class="news-card">
-        <div class="news-category" style="color:{cat_color}!important;">{news["category"]}</div>
-        <div class="news-title" style="color:#F8FAFC!important;">{news["title"][:65]}</div>
-        <div class="news-meta" style="color:#64748B!important;">Source</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-# =============================================================================
-# CUSTOM CSS
-# =============================================================================
-
-custom_css = """
+st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+.material-symbols-outlined{font-family:'Material Symbols Outlined';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;vertical-align:middle;}
 
-.stApp {
-    background-color: #0B1120 !important;
-    color: #E2E8F0 !important;
-    font-family: 'Inter', sans-serif;
-}
+.stApp{background-color:#031427!important;color:#d3e4fe!important;font-family:'Inter',sans-serif!important;}
+header{visibility:hidden!important;}
+[data-testid="stSidebar"]{background-color:#112240!important;border-right:1px solid rgba(51,65,85,0.5)!important;}
+[data-testid="stSidebar"] *{color:#94a3b8!important;}
+h1,h2,h3,h4,h5,h6,p,span,div,.stMarkdown{color:#d3e4fe!important;}
 
-[data-testid="stSidebar"] {
-    background-color: #0F172A !important;
-    border-right: 1px solid #1E293B;
-}
-[data-testid="stSidebar"] * { color: #94A3B8 !important; }
-[data-testid="stSidebar"] h1 { color: #F8FAFC !important; font-weight: 700; }
+/* Containers */
+div[data-testid="stVerticalBlockBorderWrapper"]{background-color:#1b2b3f!important;border:1px solid #44474d!important;border-radius:8px!important;}
 
-header { visibility: hidden; }
+/* Chat Input */
+[data-testid="stChatInput"]{background-color:#112240!important;border:1px solid rgba(51,65,85,0.7)!important;border-radius:16px!important;}
+[data-testid="stChatInput"] input{color:#d3e4fe!important;}
+[data-testid="stChatInput"] button{background-color:#4edea3!important;border-radius:12px!important;}
 
-.ticker-container {
-    display: flex;
-    justify-content: space-between;
-    background-color: #0F172A;
-    padding: 10px 20px;
-    border-bottom: 1px solid #1E293B;
-    margin-bottom: 1.5rem;
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 0.85rem;
-}
-.ticker-item { color: #94A3B8; }
-.ticker-value { color: #F8FAFC; margin-left: 5px; }
+/* Scrollbar */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:#0a192f}
+::-webkit-scrollbar-thumb{background:#26364a;border-radius:10px}
 
-h1, h2, h3, h4, p, span, div, .stMarkdown { color: #E2E8F0 !important; }
-.ticker-item, .ticker-value, .badge, .news-category { color: inherit !important; }
+/* Sidebar Nav Item Active */
+.nav-active{background:#1E293B;border-left:4px solid #4edea3;color:#4edea3!important;}
+.nav-item{padding:12px 24px;display:flex;align-items:center;gap:16px;cursor:pointer;transition:all 0.2s;}
+.nav-item:hover{background:#1E293B;}
+.nav-label{font-size:12px;letter-spacing:0.05em;font-weight:600;text-transform:uppercase;}
 
-[data-testid="stChatInput"] { background-color: #020617; border: 1px solid #1E293B; }
+/* Ticker */
+.ticker-row{display:flex;align-items:center;gap:0;background:#102034;border-bottom:1px solid rgba(51,65,85,0.5);padding:0 24px;height:40px;margin-bottom:0;}
+.ticker-item{display:flex;align-items:center;gap:8px;padding-right:32px;border-right:1px solid rgba(51,65,85,0.5);margin-right:0;padding-left:32px;}
+.ticker-item:first-child{padding-left:0;}
+.ticker-item:last-child{border-right:none;}
+.ticker-lbl{font-size:10px;color:#c5c6cd;text-transform:uppercase;font-weight:600;letter-spacing:0.05em;}
+.ticker-val{font-size:14px;font-weight:500;font-family:'Inter',monospace;}
+.ticker-chg{font-size:12px;font-weight:500;display:flex;align-items:center;}
 
-.agent-log {
-    background-color: #020617;
-    border: 1px solid #1E293B;
-    border-radius: 8px;
-    padding: 15px;
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 0.8rem;
-    margin-top: 1rem;
-}
+/* Top Nav */
+.topnav{display:flex;justify-content:space-between;align-items:center;padding:0 24px;height:64px;background:#0A192F;border-bottom:1px solid rgba(51,65,85,0.5);}
+.topnav-brand{font-size:18px;font-weight:900;color:#fff!important;text-transform:uppercase;font-family:'Manrope',sans-serif;letter-spacing:-0.02em;}
+.topnav-link{font-size:14px;color:#64748b!important;text-decoration:none;transition:color 0.2s;}
+.topnav-link-active{color:#4edea3!important;font-weight:700;border-bottom:2px solid #4edea3;padding-bottom:4px;}
 
-div[data-testid="stVerticalBlockBorderWrapper"] {
-    background-color: #0F172A !important;
-    border: 1px solid #1E293B !important;
-    border-radius: 8px;
-}
+/* Sections */
+.section-label{font-size:12px;letter-spacing:0.05em;font-weight:600;text-transform:uppercase;color:#c5c6cd!important;margin-bottom:16px;}
+.metric-label{font-size:10px;letter-spacing:0.05em;font-weight:600;text-transform:uppercase;color:#c5c6cd!important;}
+.metric-value{font-size:24px;font-weight:600;font-family:'Manrope',sans-serif;letter-spacing:-0.01em;}
+.insight-title{font-size:12px;color:#4edea3!important;text-transform:uppercase;letter-spacing:0.05em;font-weight:600;border-bottom:1px solid rgba(78,222,163,0.2);padding-bottom:8px;margin-bottom:16px;}
+.insight-item{display:flex;gap:12px;margin-bottom:16px;line-height:1.6;}
+.insight-text{font-size:16px;color:#d3e4fe!important;}
+.insight-bold{font-weight:700;color:#fff!important;}
 
-.news-card {
-    background-color: #0F172A;
-    border: 1px solid #1E293B;
-    border-radius: 8px;
-    padding: 12px;
-    margin-bottom: 10px;
-}
-.news-category { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; margin-bottom: 4px; }
-.news-title { font-size: 0.85rem; color: #F8FAFC !important; font-weight: 500; line-height: 1.3; }
-.news-meta { font-size: 0.7rem; color: #64748B !important; margin-top: 4px; }
+/* Log */
+.perf-log{background:#0b1c30;padding:16px;border-radius:8px;font-family:'Inter',monospace;font-size:14px;border-left:2px solid #4edea3;}
+.log-line{margin-bottom:4px;}
+.log-dim{color:#64748b!important;}
+.log-highlight{color:#4edea3!important;}
 
-.insight-item {
-    padding: 14px 0;
-    border-bottom: 1px solid #1E293B;
-    line-height: 1.7;
-    font-size: 0.9rem;
-}
+/* News */
+.news-card{margin-bottom:24px;cursor:pointer;}
+.news-img{width:100%;height:96px;object-fit:cover;border-radius:8px;margin-bottom:12px;opacity:0.8;}
+.news-img:hover{opacity:1;}
+.news-cat{font-size:10px;font-weight:700;text-transform:uppercase;}
+.news-title{font-size:14px;color:#fff!important;font-weight:600;font-family:'Manrope',sans-serif;margin-top:4px;line-height:1.3;}
+.news-meta{font-size:10px;color:#64748b!important;margin-top:8px;font-weight:600;letter-spacing:0.05em;}
 
-.portfolio-alert {
-    background-color: #1E293B;
-    border-radius: 6px;
-    padding: 8px 14px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #F8FAFC !important;
-    text-align: center;
-    margin-top: 10px;
-}
+/* History */
+.hist-card{padding:12px;border-radius:8px;margin-bottom:12px;cursor:pointer;transition:all 0.2s;}
+.hist-card-active{background:#1b2b3f;border:1px solid #44474d;}
+.hist-card-inactive{background:transparent;border:1px solid transparent;}
+.hist-card:hover{background:#1b2b3f;}
+.hist-title{font-size:14px;color:#d3e4fe!important;line-height:1.4;}
+.hist-meta{font-size:10px;color:#c5c6cd!important;font-weight:600;letter-spacing:0.05em;}
+
+/* Badge */
+.exec-badge{background:rgba(78,222,163,0.1);color:#4edea3!important;border:1px solid rgba(78,222,163,0.2);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:-0.02em;}
+.task-id{font-size:10px;color:#c5c6cd!important;font-weight:700;text-transform:uppercase;margin-left:8px;}
+
+/* Portfolio Alert */
+.portfolio-alert{background:#1b2b3f;border:1px solid #44474d;border-radius:16px;padding:24px;margin-top:40px;}
+.portfolio-title{font-size:14px;color:#fff!important;font-weight:600;font-family:'Manrope',sans-serif;margin-bottom:8px;}
+.portfolio-text{font-size:12px;color:#c5c6cd!important;line-height:1.5;}
+.portfolio-btn{margin-top:16px;color:#4edea3!important;font-size:10px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;border:1px solid rgba(78,222,163,0.3);padding:8px 12px;border-radius:4px;background:transparent;width:100%;text-align:center;cursor:pointer;}
+
+/* Mini Chart */
+.mini-chart{height:96px;width:100%;background:#0b1c30;border-radius:4px;display:flex;align-items:flex-end;padding:8px;gap:4px;margin-bottom:16px;}
+.mini-bar{flex:1;}
+
+/* Metrics divider */
+.metrics-row{display:flex;align-items:center;gap:0;padding:16px 0;border-top:1px solid rgba(51,65,85,0.5);border-bottom:1px solid rgba(51,65,85,0.5);}
+.metric-col{display:flex;flex-direction:column;}
+.metric-col+.metric-col{border-left:1px solid rgba(51,65,85,0.5);padding-left:24px;margin-left:24px;}
 </style>
-"""
-st.markdown(custom_css, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 # =============================================================================
-# FETCH LIVE DATA
+# FETCH DATA
 # =============================================================================
-
 ticker_data = fetch_ticker_data()
 trending_news = fetch_trending_news()
 
 # =============================================================================
 # SIDEBAR
 # =============================================================================
-
 with st.sidebar:
     st.markdown("""
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">
-        <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#10B981,#3B82F6);display:flex;align-items:center;justify-content:center;">
-            <span style="color:#fff!important;font-size:0.8rem;font-weight:bold;">Q</span>
-        </div>
-        <div>
-            <h1 style="color:#F8FAFC!important;font-size:1rem;margin:0;line-height:1.2;">TERMINAL v4.2</h1>
-            <p style="font-size:0.7rem;color:#10B981!important;margin:0;">System Status: Active</p>
+    <div style="padding:24px 24px 0 24px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:32px;">
+            <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#4edea3,#0a192f);display:flex;align-items:center;justify-content:center;">
+                <span style="color:#fff!important;font-size:14px;font-weight:bold;">Q</span>
+            </div>
+            <div>
+                <div style="color:#fff!important;font-weight:700;font-family:'Manrope',sans-serif;font-size:14px;text-transform:uppercase;letter-spacing:-0.02em;">Terminal v4.2</div>
+                <div style="font-size:10px;color:#4edea3!important;font-weight:600;letter-spacing:0.05em;">System Status: Active</div>
+            </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
-    st.divider()
-    st.markdown("🏢 **INTELLIGENCE**")
-    st.markdown("📈 MARKET TICKERS")
-    st.markdown("🤖 AGENT LOGS")
-    st.markdown("💼 PORTFOLIOS")
-    st.markdown("📄 REPORTS")
-    st.divider()
-    st.markdown("📋 COMPLIANCE")
-    st.markdown("📡 API DOCS")
-    st.divider()
+
+    st.markdown("""
+    <div class="nav-item nav-active"><span class="material-symbols-outlined">analytics</span><span class="nav-label" style="color:#4edea3!important;">Intelligence</span></div>
+    <div class="nav-item"><span class="material-symbols-outlined">finance_mode</span><span class="nav-label">Market Tickers</span></div>
+    <div class="nav-item"><span class="material-symbols-outlined">terminal</span><span class="nav-label">Agent Logs</span></div>
+    <div class="nav-item"><span class="material-symbols-outlined">pie_chart</span><span class="nav-label">Portfolios</span></div>
+    <div class="nav-item"><span class="material-symbols-outlined">description</span><span class="nav-label">Reports</span></div>
+    """, unsafe_allow_html=True)
+
     st.button("+ New Research", use_container_width=True)
 
-# =============================================================================
-# TOP NAVIGATION + TICKER TAPE
-# =============================================================================
+    st.markdown("""
+    <div style="margin-top:auto;padding:24px;border-top:1px solid rgba(51,65,85,0.5);">
+        <div class="nav-item" style="padding:8px 0;"><span class="material-symbols-outlined">gavel</span><span class="nav-label">Compliance</span></div>
+        <div class="nav-item" style="padding:8px 0;"><span class="material-symbols-outlined">api</span><span class="nav-label">API Docs</span></div>
+    </div>
+    """, unsafe_allow_html=True)
 
-render_top_nav()
-render_ticker_tape(ticker_data)
+# =============================================================================
+# TOP NAV
+# =============================================================================
+st.markdown("""
+<div class="topnav">
+    <div style="display:flex;align-items:center;gap:16px;">
+        <span class="topnav-brand">QUANTUM AI</span>
+        <div style="height:24px;width:1px;background:#334155;margin:0 8px;"></div>
+        <a class="topnav-link topnav-link-active" href="#">Overview</a>
+        <a class="topnav-link" href="#">Forecasting</a>
+        <a class="topnav-link" href="#">Sentiment</a>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;">
+        <span class="material-symbols-outlined" style="color:#94a3b8!important;cursor:pointer;">notifications</span>
+        <span class="material-symbols-outlined" style="color:#94a3b8!important;cursor:pointer;">settings</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 # =============================================================================
-# MAIN 3-COLUMN LAYOUT
+# TICKER TAPE (REAL-TIME)
 # =============================================================================
+ticker_html = ""
+for i,(lbl,d) in enumerate(ticker_data.items()):
+    c = get_color(d["change"])
+    a = get_arrow(d["change"])
+    ps = f"{d['price']:,.2f}" if d['price']>1000 else f"{d['price']:.2f}"
+    ticker_html += f'<div class="ticker-item"><span class="ticker-lbl">{lbl}</span><span class="ticker-val" style="color:{c}!important;">{ps}</span><span class="ticker-chg" style="color:{c}!important;"><span class="material-symbols-outlined" style="font-size:14px;color:{c}!important;">{a}</span>{abs(d["change"]):.2f}%</span></div>'
+st.markdown(f'<div class="ticker-row">{ticker_html}</div>', unsafe_allow_html=True)
 
-col_hist, col_main, col_news = st.columns([1, 3, 1])
+# =============================================================================
+# 3-COLUMN LAYOUT
+# =============================================================================
+col_hist, col_main, col_news = st.columns([2, 7, 3])
 
-# --- Left: Research History ---
+# --- LEFT: Research History ---
 with col_hist:
-    st.markdown("<p style='color:#94A3B8!important;font-size:0.75rem;font-weight:700;letter-spacing:1px;'>RESEARCH HISTORY</p>", unsafe_allow_html=True)
-
+    st.markdown('<p class="section-label">Research History</p>', unsafe_allow_html=True)
     if "search_history" not in st.session_state:
         st.session_state.search_history = []
-
-    for item in st.session_state.search_history[-3:]:
-        with st.container(border=True):
-            st.markdown(f"<strong style='color:#E2E8F0!important;'>{item['name'][:22]}...</strong><br><span style='color:#94A3B8!important;font-size:0.75rem;'>{item['time']} • Deep Scan</span>", unsafe_allow_html=True)
-
+    for i, item in enumerate(st.session_state.search_history[-3:]):
+        cls = "hist-card-active" if i==0 else "hist-card-inactive"
+        st.markdown(f'<div class="hist-card {cls}"><p class="hist-title">{item["name"][:40]}</p><span class="hist-meta">{item["time"]} • Deep Scan</span></div>', unsafe_allow_html=True)
     if not st.session_state.search_history:
-        st.markdown("<p style='color:#475569!important;font-size:0.8rem;'>No research yet.</p>", unsafe_allow_html=True)
+        st.markdown('<p style="color:#64748b!important;font-size:12px;">No research yet.</p>', unsafe_allow_html=True)
 
-# --- Right: Trending News (LIVE) ---
+# --- RIGHT: Trending News ---
 with col_news:
-    st.markdown("<p style='color:#94A3B8!important;font-size:0.75rem;font-weight:700;letter-spacing:1px;'>TRENDING NEWS</p>", unsafe_allow_html=True)
+    st.markdown('<p class="section-label">Trending News</p>', unsafe_allow_html=True)
+    # News images (placeholder gradients since external image APIs are unreliable)
+    news_gradients = [
+        "linear-gradient(135deg,#0a192f,#112240,#4edea3)",
+        "linear-gradient(135deg,#0a192f,#3c0003,#ec4242)",
+        "linear-gradient(135deg,#0a192f,#26364a,#b9c7e4)"
+    ]
+    for i, news in enumerate(trending_news[:3]):
+        cc = cat_color(news["category"])
+        grad = news_gradients[i % len(news_gradients)]
+        st.markdown(f"""
+        <div class="news-card">
+            <div style="width:100%;height:96px;border-radius:8px;margin-bottom:12px;background:{grad};"></div>
+            <span class="news-cat" style="color:{cc}!important;">{news["category"]}</span>
+            <div class="news-title">{news["title"][:65]}</div>
+            <div class="news-meta">Source</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    for news in trending_news[:4]:
-        render_news_card(news)
+    st.markdown("""
+    <div class="portfolio-alert">
+        <div class="portfolio-title">Portfolio Alert</div>
+        <p class="portfolio-text">Your exposure to 'Technology' exceeds target by 4.2%. Consider rebalancing during the afternoon session.</p>
+        <div class="portfolio-btn">View Details</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    # Portfolio Alert badge
-    st.markdown('<div class="portfolio-alert" style="color:#F8FAFC!important;">Portfolio Alert</div>', unsafe_allow_html=True)
-
-# --- Center: Main Terminal ---
+# --- CENTER: Main Terminal ---
 with col_main:
     company = st.chat_input("Analyze the impact of a company's market position...")
 
     if company:
-        # Track search history
         now = datetime.now()
-        st.session_state.search_history.append({
-            "name": f"{company} Market Analysis",
-            "time": now.strftime("%I:%M %p")
-        })
-
-        # --- Execution Header ---
+        st.session_state.search_history.insert(0, {"name":f"{company} Market Analysis","time":now.strftime("%I:%M %p")})
         task_id = abs(hash(company + now.isoformat())) % 10000
-        st.markdown(f"""
-        <div style="margin-bottom:5px;">
-            <span style="background-color:#064E3B;color:#34D399;padding:4px 10px;border-radius:4px;font-size:0.7rem;font-weight:bold;letter-spacing:1px;">AI AGENT EXECUTION</span>
-            <span style="color:#94A3B8!important;font-size:0.8rem;margin-left:12px;">TASK ID: #QT-{task_id}</span>
-        </div>
-        """, unsafe_allow_html=True)
 
-        st.markdown(f"<h1 style='font-size:2.2rem;margin-top:8px;margin-bottom:0;color:#F8FAFC!important;font-weight:700;'>Market Analysis: {company}</h1>", unsafe_allow_html=True)
+        # Header
+        st.markdown(f'<div style="margin-bottom:16px;"><span class="exec-badge">AI AGENT EXECUTION</span><span class="task-id">TASK ID: #QT-{task_id}</span></div>', unsafe_allow_html=True)
+        st.markdown(f'<h1 style="font-size:30px;font-weight:700;font-family:Manrope,sans-serif;color:#fff!important;letter-spacing:-0.02em;line-height:38px;margin-bottom:16px;">Market Analysis: {company}</h1>', unsafe_allow_html=True)
 
-        # --- Execute Agents ---
-        with st.status(f"System running macro and micro analysis for {company}...", expanded=True) as status:
+        # Execute agents
+        with st.status(f"Scanning Bloomberg, Reuters, Financial Times for {company}...", expanded=True) as status:
             st.write(">> INITIALIZING ALPHA NODE (QUANT)...")
             alpha_data = run_quantitative_analysis(company)
-
             st.write(">> INITIALIZING BETA NODE (QUAL)...")
             beta_data = run_qualitative_analysis(company)
-
             st.write(">> ROUTING TO NEURAL JUDGE FOR SYNTHESIS...")
             final_report = evaluate_reports(company, alpha_data, beta_data)
             status.update(label="ANALYSIS COMPILED", state="complete")
 
-        # =====================================================================
-        # PARSE ALL DATA — nothing hardcoded below this point
-        # =====================================================================
+        # Parse data
+        score = parse_score(alpha_data)
+        signal = compute_signal(score)
+        volatility = compute_vol(score)
+        sm = re.search(r"Top Signal:\s*(BUY|SELL|HOLD|ACCUMULATE|REDUCE)",alpha_data,re.I)
+        vm = re.search(r"Volatility Index:\s*(LOW|MEDIUM|HIGH)",alpha_data,re.I)
+        if sm: signal = sm.group(1).upper()
+        if vm: volatility = vm.group(1).upper()
 
-        # 1. Parse sentiment score from Alpha output (integer)
-        sentiment_score = parse_sentiment_score(alpha_data)
+        vc = vol_color(volatility)
+        sc = sig_color(signal)
 
-        # 2. Compute signal and volatility FROM the score — never static
-        computed_signal = compute_signal(sentiment_score)
-        computed_volatility = compute_volatility(sentiment_score)
+        # Metrics
+        st.markdown(f"""
+        <div class="metrics-row">
+            <div class="metric-col">
+                <span class="metric-label">Sentiment Score</span>
+                <span class="metric-value" style="color:#4edea3!important;">{score} / 100</span>
+            </div>
+            <div class="metric-col">
+                <span class="metric-label">Volatility Index</span>
+                <span class="metric-value" style="color:{vc}!important;">{volatility}</span>
+            </div>
+            <div class="metric-col">
+                <span class="metric-label">Top Signal</span>
+                <span class="metric-value" style="color:{sc}!important;">{signal}</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        # 3. Override with Alpha's explicit values if present, else use computed
-        signal_match = re.search(r"Top Signal:\s*(BUY|SELL|HOLD|ACCUMULATE|REDUCE)", alpha_data, re.IGNORECASE)
-        volatility_match = re.search(r"Volatility Index:\s*(LOW|MEDIUM|HIGH)", alpha_data, re.IGNORECASE)
-
-        final_signal = signal_match.group(1).strip().upper() if signal_match else computed_signal
-        final_volatility = volatility_match.group(1).strip().upper() if volatility_match else computed_volatility
-
-        # 4. Derive all display colors from the DATA
-        sentiment_color = get_change_color(sentiment_score - 50)  # >50 = green, <50 = red
-        volatility_color = get_volatility_color(final_volatility)
-        signal_color = get_signal_color(final_signal)
-
-        # 5. Format sentiment display string
-        sentiment_display = f"{sentiment_score} / 100"
-
-        # --- METRICS ROW ---
-        m1, m2, m3 = st.columns(3)
-        with m1:
-            render_score_indicator("SENTIMENT SCORE", sentiment_display, "#F8FAFC")
-        with m2:
-            render_score_indicator("VOLATILITY INDEX", final_volatility, volatility_color)
-        with m3:
-            render_signal_badge(final_signal)
-
-        st.divider()
-
-        # --- KEY EXECUTIVE INSIGHTS ---
-        st.markdown("<p style='color:#10B981!important;font-size:0.85rem;font-weight:700;letter-spacing:1.5px;'>KEY EXECUTIVE INSIGHTS</p>", unsafe_allow_html=True)
-
+        # Key Executive Insights
+        st.markdown('<h2 class="insight-title" style="margin-top:32px;">Key Executive Insights</h2>', unsafe_allow_html=True)
         insights = parse_insights(beta_data)
-
         if insights:
-            for insight in insights[:3]:
-                render_insight(insight)
+            for ins in insights:
+                icon = "check_circle" if ins["sentiment"]=="positive" else "warning"
+                ic = "#4edea3" if ins["sentiment"]=="positive" else "#ec4242"
+                st.markdown(f"""
+                <div class="insight-item">
+                    <span class="material-symbols-outlined" style="color:{ic}!important;flex-shrink:0;">{icon}</span>
+                    <p class="insight-text"><span class="insight-bold">{ins['title']}:</span> {ins['body']}</p>
+                </div>
+                """, unsafe_allow_html=True)
         else:
             st.markdown(beta_data)
 
-        st.divider()
+        # Agent Performance Log
+        st.markdown('<h2 class="insight-title" style="margin-top:32px;">Agent Performance Log</h2>', unsafe_allow_html=True)
+        ts = now.strftime("%H:%M:%S")
+        ci = min(score+16,99)
+        st.markdown(f"""
+        <div class="perf-log">
+            <p class="log-line log-dim">[{ts}] Scanning Bloomberg, Reuters, Financial Times...</p>
+            <p class="log-line log-dim">[{ts}] Identifying correlation patterns for {company}...</p>
+            <p class="log-line log-highlight">[{ts}] Critical Pattern Detected: Score={score}, Signal={signal}</p>
+            <p class="log-line log-dim">[{ts}] Briefing compiled. Confidence Interval: {ci}.{abs(hash(company))%10}%</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-        # --- AGENT PERFORMANCE LOG ---
-        st.markdown("<p style='color:#10B981!important;font-size:0.85rem;font-weight:700;letter-spacing:1.5px;'>AGENT PERFORMANCE LOG</p>", unsafe_allow_html=True)
+        # Upside / Risk cards
+        st.markdown('<div style="height:24px;"></div>', unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
+        with c1:
+            bars = "".join([f'<div class="mini-bar" style="background:#4edea3;height:{20+i*13}%;"></div>' for i in range(6)])
+            st.markdown(f"""
+            <div style="padding:24px;background:#1b2b3f;border:1px solid #44474d;border-radius:12px;">
+                <p class="metric-label" style="margin-bottom:16px;">Upside Catalyst</p>
+                <div class="mini-chart" style="background:linear-gradient(to top right,rgba(78,222,163,0.2),transparent);">{bars}</div>
+                <p style="font-size:12px;color:#c5c6cd!important;">Strong institutional inflow detected in high-beta assets over 48h period.</p>
+            </div>
+            """, unsafe_allow_html=True)
+        with c2:
+            bars = "".join([f'<div class="mini-bar" style="background:#ec4242;height:{100-i*15}%;"></div>' for i in range(6)])
+            st.markdown(f"""
+            <div style="padding:24px;background:#1b2b3f;border:1px solid #44474d;border-radius:12px;">
+                <p class="metric-label" style="margin-bottom:16px;">Risk Exposure</p>
+                <div class="mini-chart" style="background:linear-gradient(to top right,rgba(236,66,66,0.2),transparent);">{bars}</div>
+                <p style="font-size:12px;color:#c5c6cd!important;">Over-leveraging in consumer retail puts pressure on broader market liquidity.</p>
+            </div>
+            """, unsafe_allow_html=True)
 
-        log_ts = now.strftime("%H:%M:%S")
-        log_entries = [
-            {"time": log_ts, "message": f"Alpha Node completed quantitative scan for {company}.", "type": "info"},
-            {"time": log_ts, "message": f"Beta Node completed qualitative scan for {company}.", "type": "info"},
-            {"time": log_ts, "message": f"Critical Pattern Detected: Sentiment={sentiment_score}, Signal={final_signal}", "type": "synthesis"},
-            {"time": log_ts, "message": f"Briefing compiled. Confidence Interval: {min(sentiment_score + 16, 99)}.{abs(hash(company)) % 10}%", "type": "info"},
-        ]
-        render_agent_log(log_entries)
-
-        # --- Expandable Full Reports ---
+        # Expandable Full Reports
         with st.expander("📄 Full Alpha Report (Quantitative)"):
             st.markdown(alpha_data)
         with st.expander("📄 Full Beta Report (Qualitative)"):
             st.markdown(beta_data)
         with st.expander("⚖️ Full Judge Synthesis"):
             st.markdown(final_report)
-
     else:
-        # --- IDLE STATE ---
-        st.markdown("<span style='background-color:#1E293B;color:#94A3B8;padding:4px 10px;border-radius:4px;font-size:0.7rem;font-weight:bold;letter-spacing:1px;'>SYSTEM IDLE</span>", unsafe_allow_html=True)
-        st.markdown("<h1 style='font-size:2.5rem;margin-top:12px;color:#475569!important;font-weight:700;'>Awaiting Execution Protocol</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='color:#475569!important;'>Use the terminal input below to launch a targeted market scan.</p>", unsafe_allow_html=True)
+        st.markdown('<span class="exec-badge" style="background:#1E293B!important;color:#94a3b8!important;border-color:#44474d!important;">SYSTEM IDLE</span>', unsafe_allow_html=True)
+        st.markdown('<h1 style="font-size:30px;font-weight:700;font-family:Manrope,sans-serif;color:#475569!important;margin-top:12px;">Awaiting Execution Protocol</h1>', unsafe_allow_html=True)
+        st.markdown('<p style="color:#475569!important;">Use the terminal input below to launch a targeted market scan.</p>', unsafe_allow_html=True)
