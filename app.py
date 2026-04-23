@@ -104,6 +104,12 @@ def fetch_unsplash_image(company_name, image_type="logo"):
     except: pass
     return None
 
+def get_news_image_query(title):
+    """Extract 2-3 keywords from a headline for a unique Pexels image search."""
+    stop = {"the","a","an","is","are","to","for","of","in","on","and","or","as","by","at","from","with","its","it","that","this","how","why","what","vs","amid"}
+    words = [w for w in re.sub(r'[^a-zA-Z\s]','',title).split() if w.lower() not in stop and len(w)>2]
+    return " ".join(words[:3]) if words else "financial markets"
+
 @st.cache_data(ttl=600)
 def fetch_pexels_image(query):
     """Fetch a single landscape image from Pexels for trending news."""
