@@ -12,10 +12,16 @@ custom_css = """
 <style>
 /* Background and Base Styling */
 .stApp {
-    background-color: #ffffff;
+    background-color: #ffffff !important;
     background-image: radial-gradient(#e0e0e0 2px, transparent 2px);
     background-size: 30px 30px;
     font-family: 'Inter', sans-serif;
+    color: #1a1a1a !important;
+}
+
+/* Force dark text for standard Streamlit typography to override Dark Mode defaults */
+.stMarkdown p, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown h5, .stMarkdown h6, .stMarkdown span, .stMetric label, .stMetric div, .stText {
+    color: #1a1a1a !important;
 }
 
 /* Animations */
