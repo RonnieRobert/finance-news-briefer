@@ -35,10 +35,11 @@ Evaluate the reports based on the following rubric:
 1. Accuracy: Do the claims seem plausible and reflect the provided reports accurately?
 2. Grounding (CRITICAL): Every single claim or data point MUST be backed by an inline URL citation (e.g., [1], [2]). Any claim without a clear citation in the source reports MUST be discarded or flagged.
 3. Insight: Does the report provide a clear, holistic view of the company's financial and market standing?
+4. Situation Weighting: Explicitly weigh which agent's data is more critical for the company's current 'situation' in your Final Summary (e.g., if the company has high debt, prioritize Alpha; if there's a leadership change, prioritize Beta).
 
 Your tasks:
 1. Review both reports against the rubric.
-2. Select the best report, OR merge the strongest grounded insights from both into a single cohesive Final Briefing.
+2. Select the best report, OR merge the strongest grounded insights from both into a single cohesive Final Briefing. Pay special attention to Situation Weighting.
 3. Your Final Briefing MUST maintain strict inline citations for every fact. Drop any ungrounded claims.
 
 Output your evaluation reasoning first, followed by the "Final Briefing" section.

@@ -20,7 +20,7 @@ def run_quantitative_analysis(company_name: str) -> str:
     tavily = TavilyClient(api_key=tavily_api_key)
     
     # 2. Perform the search
-    query = f"{company_name} latest financial results revenue growth, debt-to-equity ratio, profit margin"
+    query = f"{company_name} latest financial results revenue growth, debt-to-equity ratio, profit margin, Stock performance chart image URL"
     print(f"[*] Searching Tavily for query: '{query}'")
     try:
         search_result = tavily.search(query=query, search_depth="advanced", max_results=5)
@@ -49,6 +49,12 @@ Focus specifically on finding and reporting:
 1. Revenue growth
 2. Debt-to-equity ratios
 3. Profit margins
+
+You MUST also include these two EXACT lines in your output to be parsed:
+Revenue: [extracted revenue value]
+Stock Price Change: [extracted stock price change value]
+
+If you find a stock performance chart image URL in the sources, include it formatted exactly as: ![Stock Chart](URL)
 
 Provide a highly structured summary of your findings. 
 You MUST include inline citations using the Source numbers (e.g., [1], [2]) provided in the context to back up your claims.
