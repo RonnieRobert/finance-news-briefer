@@ -104,6 +104,30 @@ def fetch_unsplash_image(company_name, image_type="logo"):
     except: pass
     return None
 
+@st.cache_data(ttl=600)
+def fetch_pexels_image(query):
+    """Fetch a single landscape image from Pexels for trending news."""
+    key = os.getenv("PEXELS_API_KEY")
+    if not key: return None
+    try:
+        resp = requests.get(
+            "https://api.pexels.com/v1/search",
+            headers={"Authorization": key},
+            params={"query": f"{query} finance market", "per_page": 1, "orientation": "landscape", "size": "small"},
+            timeout=5
+        )
+        if resp.status_code == 200:
+            photos = resp.json().get("photos", [])
+            if photos:
+                p = photos[0]
+                return {
+                    "url": p["src"]["small"],
+                    "photographer": p.get("photographer", ""),
+                    "photo_url": p.get("url", ""),
+                }
+    except: pass
+    return None
+
 def get_color(v): return "#4edea3" if v>0 else "#ec4242" if v<0 else "#c5c6cd"
 def get_arrow(v): return "arrow_drop_up" if v>0 else "arrow_drop_down" if v<0 else "remove"
 def compute_signal(s): return "ACCUMULATE" if s>70 else "HOLD" if s>50 else "REDUCE" if s>30 else "SELL"
