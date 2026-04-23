@@ -39,10 +39,13 @@ Evaluate the reports based on the following rubric:
 
 Your tasks:
 1. Review both reports against the rubric.
-2. Select the best report, OR merge the strongest grounded insights from both into a single cohesive Final Briefing. Pay special attention to Situation Weighting.
+2. Merge the strongest grounded insights from both into a single cohesive Final Briefing. Pay special attention to Situation Weighting.
 3. Your Final Briefing MUST maintain strict inline citations for every fact. Drop any ungrounded claims.
 
-Output your evaluation reasoning first, followed by the "Final Briefing" section.
+Format your Final Briefing as a set of bold-titled insights. Each insight must follow this format:
+**[Short Bold Title]:** [1-2 sentence explanation with inline citation]
+
+Start with a brief "Situation Weighting" paragraph explaining which agent was prioritized and why, then provide the merged insights.
 """)
     ])
     

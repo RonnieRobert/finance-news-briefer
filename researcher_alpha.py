@@ -11,7 +11,7 @@ def run_quantitative_analysis(company_name: str) -> str:
     """
     Runs a quantitative analysis for a given company.
     Focuses on revenue growth, debt-to-equity ratios, and profit margins.
-    Returns a structured summary with citations.
+    Returns a structured summary with citations and parseable metrics.
     """
     print(f"[*] Starting quantitative research for {company_name}...")
     
@@ -20,7 +20,7 @@ def run_quantitative_analysis(company_name: str) -> str:
     tavily = TavilyClient(api_key=tavily_api_key)
     
     # 2. Perform the search
-    query = f"{company_name} latest financial results revenue growth, debt-to-equity ratio, profit margin, Stock performance chart image URL"
+    query = f"{company_name} latest financial results revenue growth, debt-to-equity ratio, profit margin, stock price performance, market sentiment score"
     print(f"[*] Searching Tavily for query: '{query}'")
     try:
         search_result = tavily.search(query=query, search_depth="advanced", max_results=5)
@@ -50,13 +50,12 @@ Focus specifically on finding and reporting:
 2. Debt-to-equity ratios
 3. Profit margins
 
-You MUST also include these two EXACT lines in your output to be parsed:
-Revenue: [extracted revenue value]
-Stock Price Change: [extracted stock price change value]
+You MUST output the following EXACT lines (one per line, at the top of your response) so they can be machine-parsed:
+Sentiment Score: [a number from 0 to 100 reflecting overall market sentiment]
+Volatility Index: [one of: LOW, MEDIUM, HIGH]
+Top Signal: [one of: BUY, SELL, HOLD, ACCUMULATE]
 
-If you find a stock performance chart image URL in the sources, include it formatted exactly as: ![Stock Chart](URL)
-
-Provide a highly structured summary of your findings. 
+After those three lines, provide your detailed structured analysis below.
 You MUST include inline citations using the Source numbers (e.g., [1], [2]) provided in the context to back up your claims.
 
 Context Information:

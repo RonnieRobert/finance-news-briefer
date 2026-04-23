@@ -4,4 +4,4 @@ langchain-groq
 langchain-community
 tavily-python
 python-dotenv
-streamlit
+yfinance
