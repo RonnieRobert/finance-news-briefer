@@ -416,9 +416,11 @@ with col_news:
         pexels_data = fetch_pexels_image(get_news_image_query(news["title"]))
         if pexels_data:
             img_html = f'<img class="news-img" src="{pexels_data["url"]}" alt="{pexels_data.get("alt","")}" />'
+            credit = f'<div class="news-meta" style="margin-top: 8px;">Photo by {pexels_data["photographer"]} on Pexels</div>'
         else:
             fallback_grads = ["linear-gradient(135deg,#0a192f,#112240,#4edea3)","linear-gradient(135deg,#0a192f,#3c0003,#ec4242)","linear-gradient(135deg,#0a192f,#26364a,#b9c7e4)"]
             img_html = f'<div style="width:100%;height:96px;border-radius:8px;margin-bottom:12px;background:{fallback_grads[i%3]};"></div>'
+            credit = '<div class="news-meta" style="margin-top: 8px;">Source: Market Data</div>'
             
         st.markdown(f"""
         <div class="news-card">
@@ -427,6 +429,7 @@ with col_news:
                 <span class="news-cat" style="color:{cc}!important;">{news["category"]}</span>
                 <div class="news-title" style="color:#ffffff;">{news["title"][:65]}</div>
             </a>
+            {credit}
         </div>
         """, unsafe_allow_html=True)
 
