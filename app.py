@@ -107,7 +107,6 @@ def fetch_company_image(company_name):
                 if logo:
                     return {"url": logo, "photographer": "", "photo_url": ""}
     except: pass
-    except: pass
     return None
 
 def get_news_image_query(title):
