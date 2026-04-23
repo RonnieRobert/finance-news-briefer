@@ -66,25 +66,29 @@ def fetch_pexels_image(query):
     except: pass
     return None
 
-def get_image_query(category):
-    """Map news category to a Pexels search query for relevant imagery."""
-    mapping = {
-        "SEMICONDUCTORS": "semiconductor chip factory technology",
-        "ENERGY": "electric power grid energy station",
-        "MACRO": "central bank building finance",
-        "CRYPTO": "cryptocurrency bitcoin digital",
-        "MARKETS": "stock market trading finance"
-    }
-    return mapping.get(category, "financial markets")
+def get_news_image_query(title):
+    """Extract 2-3 keywords from a headline for a unique Pexels image search."""
+    stop = {"the","a","an","is","are","to","for","of","in","on","and","or","as","by","at","from","with","its","it","that","this","how","why","what","vs","amid"}
+    words = [w for w in re.sub(r'[^a-zA-Z\s]','',title).split() if w.lower() not in stop and len(w)>2]
+    return " ".join(words[:3]) if words else "financial markets"
 
+@st.cache_data(ttl=600)
 def get_company_logo_url(company_name):
-    """Try Clearbit logo, fallback to a styled initial-letter HTML block."""
-    domain_guess = company_name.strip().split()[0].lower()
-    clearbit_url = f"https://logo.clearbit.com/{domain_guess}.com"
+    """Use Clearbit autocomplete to find the correct domain, then fetch logo."""
     try:
-        r = requests.head(clearbit_url, timeout=3)
-        if r.status_code == 200:
-            return clearbit_url
+        resp = requests.get(
+            f"https://autocomplete.clearbit.com/v1/companies/suggest?query={company_name}",
+            timeout=3
+        )
+        if resp.status_code == 200:
+            suggestions = resp.json()
+            if suggestions:
+                domain = suggestions[0].get("domain", "")
+                logo = suggestions[0].get("logo", "")
+                if logo:
+                    return logo
+                if domain:
+                    return f"https://logo.clearbit.com/{domain}"
     except: pass
     return None
 
@@ -280,6 +284,8 @@ trending_news = fetch_trending_news()
 # =============================================================================
 if "active_tab" not in st.session_state:
     st.session_state.active_tab = "Intelligence"
+if "active_view" not in st.session_state:
+    st.session_state.active_view = "Overview"
 
 with st.sidebar:
     st.markdown("""
@@ -320,23 +326,18 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 # =============================================================================
-# TOP NAV
+# TOP NAV (functional tabs)
 # =============================================================================
-st.markdown("""
-<div class="topnav">
-    <div style="display:flex;align-items:center;gap:16px;">
-        <span class="topnav-brand">QUANTUM AI</span>
-        <div style="height:24px;width:1px;background:#334155;margin:0 8px;"></div>
-        <a class="topnav-link topnav-link-active" href="#">Overview</a>
-        <a class="topnav-link" href="#">Forecasting</a>
-        <a class="topnav-link" href="#">Sentiment</a>
-    </div>
-    <div style="display:flex;align-items:center;gap:16px;">
-        <span class="material-symbols-outlined" style="color:#94a3b8!important;cursor:pointer;">notifications</span>
-        <span class="material-symbols-outlined" style="color:#94a3b8!important;cursor:pointer;">settings</span>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+nav_cols = st.columns([2,1,1,1,6,1,1])
+with nav_cols[0]:
+    st.markdown('<span class="topnav-brand">QUANTUM AI</span>', unsafe_allow_html=True)
+for idx, view_name in enumerate(["Overview","Forecasting","Sentiment"]):
+    with nav_cols[idx+1]:
+        is_active = st.session_state.active_view == view_name
+        style = "color:#4edea3!important;font-weight:700;" if is_active else "color:#64748b!important;"
+        if st.button(view_name, key=f"view_{view_name}", use_container_width=True):
+            st.session_state.active_view = view_name
+            st.rerun()
 
 # =============================================================================
 # TICKER TAPE (REAL-TIME)
@@ -370,7 +371,7 @@ with col_news:
     st.markdown('<p class="section-label">Trending News</p>', unsafe_allow_html=True)
     for i, news in enumerate(trending_news[:3]):
         cc = cat_color(news["category"])
-        img_url = fetch_pexels_image(get_image_query(news["category"]))
+        img_url = fetch_pexels_image(get_news_image_query(news["title"]))
         if img_url:
             img_html = f'<img class="news-img" src="{img_url}" alt="{news["category"]}" />'
         else:
@@ -397,11 +398,35 @@ with col_news:
 with col_main:
     company = st.chat_input("Analyze the impact of a company's market position...")
 
-    if company:
+    # =========================================================================
+    # VIEW ROUTING: Overview / Forecasting / Sentiment
+    # =========================================================================
+    if st.session_state.active_view == "Forecasting":
+        st.markdown('<span class="exec-badge" style="background:rgba(185,199,228,0.1)!important;color:#b9c7e4!important;border-color:rgba(185,199,228,0.2)!important;">FORECASTING ENGINE</span>', unsafe_allow_html=True)
+        st.markdown('<h1 style="font-size:30px;font-weight:700;font-family:Manrope,sans-serif;color:#fff!important;margin-top:12px;">Market Forecasting</h1>', unsafe_allow_html=True)
+        st.markdown('<p style="color:#c5c6cd!important;">AI-driven forecasts based on historical patterns and current market signals.</p>', unsafe_allow_html=True)
+        # Show live ticker data as forecast basis
+        for lbl, d in ticker_data.items():
+            direction = "Bullish" if d["change"] > 0 else "Bearish" if d["change"] < 0 else "Neutral"
+            color = get_color(d["change"])
+            st.markdown(f'<div style="padding:12px 0;border-bottom:1px solid #1E293B;"><strong style="color:#fff!important;">{lbl}</strong> — <span style="color:{color}!important;">{direction} ({d["change"]:+.2f}%)</span> <span style="color:#94a3b8!important;">Current: {d["price"]:,.2f}</span></div>', unsafe_allow_html=True)
+
+    elif st.session_state.active_view == "Sentiment":
+        st.markdown('<span class="exec-badge" style="background:rgba(185,199,228,0.1)!important;color:#b9c7e4!important;border-color:rgba(185,199,228,0.2)!important;">SENTIMENT SCANNER</span>', unsafe_allow_html=True)
+        st.markdown('<h1 style="font-size:30px;font-weight:700;font-family:Manrope,sans-serif;color:#fff!important;margin-top:12px;">Market Sentiment</h1>', unsafe_allow_html=True)
+        st.markdown('<p style="color:#c5c6cd!important;">Real-time sentiment analysis from trending financial news.</p>', unsafe_allow_html=True)
+        for news in trending_news[:3]:
+            sent = insight_sentiment(news["title"])
+            icon = "check_circle" if sent=="positive" else "warning"
+            ic = "#4edea3" if sent=="positive" else "#ec4242"
+            st.markdown(f'<div class="insight-item"><span class="material-symbols-outlined" style="color:{ic}!important;flex-shrink:0;">{icon}</span><p class="insight-text"><span class="insight-bold">{news["category"]}:</span> {news["title"]}</p></div>', unsafe_allow_html=True)
+
+    elif company:
         now = datetime.now()
         is_company = is_company_query(company)
         mode_label = "Company Analysis" if is_company else "Topic Intelligence"
         st.session_state.search_history.insert(0, {"name":f"{company[:30]} • {mode_label}","time":now.strftime("%I:%M %p")})
+        st.session_state.active_view = "Overview"
         task_id = abs(hash(company + now.isoformat())) % 10000
 
         if is_company:
