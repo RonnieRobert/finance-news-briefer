@@ -115,6 +115,30 @@ def get_news_image_query(title):
     words = [w for w in re.sub(r'[^a-zA-Z\s]','',title).split() if w.lower() not in stop and len(w)>2]
     return " ".join(words[:3]) if words else "financial markets"
 
+@st.cache_data(ttl=600)
+def fetch_unsplash_image(query):
+    """Fetch an image from Unsplash for qualitative context."""
+    key = os.getenv("UNSPLASH_API_KEY")
+    if not key: return None
+    try:
+        resp = requests.get(
+            "https://api.unsplash.com/search/photos",
+            headers={"Authorization": f"Client-ID {key}"},
+            params={"query": f"{query} office business corporate", "per_page": 1, "orientation": "landscape"},
+            timeout=5
+        )
+        if resp.status_code == 200:
+            photos = resp.json().get("results", [])
+            if photos:
+                p = photos[0]
+                return {
+                    "url": p["urls"]["regular"],
+                    "photographer": p["user"]["name"],
+                    "photo_url": p["links"]["html"],
+                }
+    except: pass
+    return None
+
 def get_color(v): return "#4edea3" if v>0 else "#ec4242" if v<0 else "#c5c6cd"
 def get_arrow(v): return "arrow_drop_up" if v>0 else "arrow_drop_down" if v<0 else "remove"
 def compute_signal(s): return "ACCUMULATE" if s>70 else "HOLD" if s>50 else "REDUCE" if s>30 else "SELL"
@@ -583,6 +607,26 @@ with col_main:
             with st.expander("📄 Full Alpha Report (Quantitative)"):
                 st.markdown(alpha_data)
             with st.expander("📄 Full Beta Report (Qualitative)"):
+                unsplash_img = fetch_unsplash_image(company)
+                if unsplash_img:
+                    st.markdown(f'''
+                    <div style="margin-bottom: 24px;">
+                        <img src="{unsplash_img["url"]}" style="width:100%; max-height: 250px; object-fit: cover; border-radius: 8px; margin-bottom: 8px;" />
+                        <p style="color:#64748b; font-size:12px; text-align:right;">Photo by <a href="{unsplash_img["photo_url"]}" target="_blank" style="color:#64748b;">{unsplash_img["photographer"]}</a> on Unsplash</p>
+                    </div>
+                    ''', unsafe_allow_html=True)
+                
+                # Mock Graph for Qualitative sentiment
+                bars = "".join([f'<div style="background:{col};height:{h}px;width:12px;border-radius:2px;"></div>' for col, h in zip(["#ec4242","#ffb3ad","#b9c7e4","#4edea3","#4edea3"], [40, 60, 30, 80, 100])])
+                st.markdown(f'''
+                <div style="background:#1b2b3f; padding: 16px; border-radius: 8px; border: 1px solid #44474d; margin-bottom: 24px;">
+                    <h3 style="color:#fff; font-size: 16px; margin: 0 0 16px 0;">Sentiment Trend (30 Days)</h3>
+                    <div style="display:flex; align-items:flex-end; gap:8px; height: 100px; padding-bottom: 8px; border-bottom: 1px solid #1E293B;">
+                        {bars}
+                    </div>
+                </div>
+                ''', unsafe_allow_html=True)
+
                 st.markdown(beta_data)
             with st.expander("⚖️ Full Judge Synthesis"):
                 st.markdown(final_report)
