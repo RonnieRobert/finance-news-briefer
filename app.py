@@ -390,7 +390,7 @@ for i,(lbl,d) in enumerate(ticker_data.items()):
     c = get_color(d["change"])
     a = get_arrow(d["change"])
     ps = f"{d['price']:,.2f}" if d['price']>1000 else f"{d['price']:.2f}"
-    ticker_html += f'<div class="ticker-item"><span class="ticker-lbl" style="color:{c}!important;">{lbl}</span><span class="ticker-val" style="color:{c}!important;">{ps}</span><span class="ticker-chg" style="color:{c}!important;"><span class="material-symbols-outlined" style="font-size:14px;color:{c}!important;">{a}</span>{abs(d["change"]):.2f}%</span></div>'
+    ticker_html += f'<div class="ticker-item"><span class="ticker-lbl" style="color:{c}!important;">{lbl}</span><span class="ticker-val" style="color:#ffffff!important;">{ps}</span><span class="ticker-chg" style="color:{c}!important;"><span class="material-symbols-outlined" style="font-size:14px;color:{c}!important;">{a}</span>{abs(d["change"]):.2f}%</span></div>'
 st.markdown(f'<div class="ticker-row">{ticker_html}</div>', unsafe_allow_html=True)
 
 # =============================================================================
