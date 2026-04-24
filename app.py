@@ -244,7 +244,10 @@ st.markdown("""
 .material-symbols-outlined{font-family:'Material Symbols Outlined';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;vertical-align:middle;}
 
 .stApp{background-color:#FDF5EC!important;color:#2D3436!important;font-family:'Inter',sans-serif!important;}
-header{visibility:hidden!important;}
+/* Hide header decorations but keep sidebar controls visible */
+header[data-testid="stHeader"]{background:transparent!important;backdrop-filter:none!important;border:none!important;pointer-events:none!important;}
+header[data-testid="stHeader"] [data-testid="stDecoration"]{display:none!important;}
+header[data-testid="stHeader"] [data-testid="stToolbar"]{display:none!important;}
 [data-testid="stSidebar"]{background-color:#fff8f0!important;border-right:1px solid #E0D5C7!important;}
 [data-testid="stSidebar"] *{color:#5a5a5a!important;}
 h1,h2,h3,h4,h5,h6{color:#419577!important;}
@@ -254,7 +257,7 @@ p,span,div,.stMarkdown{color:#2D3436!important;}
 div[data-testid="stVerticalBlockBorderWrapper"]{background-color:#FFFFFF!important;border:1px solid #E0D5C7!important;border-radius:8px!important;}
 
 /* Chat Input */
-[data-testid="stChatInput"]{background-color:#FFFFFF!important;border:1px solid #E0D5C7!important;border-radius:16px!important;}
+[data-testid="stChatInput"]{background-color:#FDF5EC!important;border:1px solid #E0D5C7!important;border-radius:16px!important;}
 [data-testid="stChatInput"] input{color:#2D3436!important;}
 [data-testid="stChatInput"] button{background-color:#F5D649!important;border-radius:12px!important;}
 
@@ -340,9 +343,15 @@ div[data-testid="stVerticalBlockBorderWrapper"]{background-color:#FFFFFF!importa
 .company-initial{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#419577,#F5AB41);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff!important;font-family:'Manrope',sans-serif;flex-shrink:0;}
 .company-header{display:flex;align-items:center;gap:16px;margin-bottom:16px;}
 
-/* Sidebar Toggle */
-button[data-testid="stBaseButton-header"]{background:#FFFFFF!important;border:1px solid rgba(65,149,119,0.3)!important;border-radius:8px!important;color:#419577!important;}
-[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"]{display:block!important;}
+/* Company header */
+
+/* Expander Overrides */
+[data-testid="stExpander"], [data-testid="stExpander"] details, [data-testid="stExpander"] summary, [data-testid="stExpanderDetails"] {
+    background-color: #FDF5EC !important;
+}
+[data-testid="stExpander"] details:hover, [data-testid="stExpander"] summary:hover, [data-testid="stExpander"] details[open], [data-testid="stExpander"] > div > div {
+    background-color: #FDF5EC !important;
+}
 
 /* Sidebar active nav link */
 .nav-link{display:flex;align-items:center;gap:16px;padding:12px 24px;cursor:pointer;transition:all 0.2s;text-decoration:none;color:#5a5a5a!important;}
@@ -362,43 +371,7 @@ button[data-testid="stBaseButton-header"]{background:#FFFFFF!important;border:1p
 ticker_data = fetch_ticker_data()
 trending_news = fetch_trending_news()
 
-# =============================================================================
-# SIDEBAR
-# =============================================================================
-if "active_tab" not in st.session_state:
-    st.session_state.active_tab = "Intelligence"
-if "active_view" not in st.session_state:
-    st.session_state.active_view = "Overview"
 
-with st.sidebar:
-    st.markdown("""
-    <div style="padding:24px 24px 0 24px;">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:32px;">
-            <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#419577,#F5AB41);display:flex;align-items:center;justify-content:center;">
-                <span style="color:#fff!important;font-size:14px;font-weight:bold;">Q</span>
-            </div>
-            <div>
-                <div style="color:#419577!important;font-weight:700;font-family:'Manrope',sans-serif;font-size:14px;text-transform:uppercase;letter-spacing:-0.02em;">Terminal v4.2</div>
-                <div style="font-size:10px;color:#419577!important;font-weight:600;letter-spacing:0.05em;">System Status: Active</div>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Navigation tabs
-    st.markdown('<p class="section-label" style="padding:0 24px; margin-bottom: 8px;">Navigation</p>', unsafe_allow_html=True)
-    if st.sidebar.button("  New Analysis", key="nav_new", use_container_width=True):
-        st.session_state.active_view = "Overview"
-        st.rerun()
-
-    st.markdown('<p class="section-label" style="padding:24px 24px 8px 24px;">Research History</p>', unsafe_allow_html=True)
-    if "search_history" not in st.session_state:
-        st.session_state.search_history = []
-    for i, item in enumerate(st.session_state.search_history[-3:]):
-        cls = "hist-card-active" if i==0 else "hist-card-inactive"
-        st.markdown(f'<div class="hist-card {cls}" style="margin: 0 24px 8px 24px;"><p class="hist-title">{item["name"][:40]}</p><span class="hist-meta">{item["time"]} • Deep Scan</span></div>', unsafe_allow_html=True)
-    if not st.session_state.search_history:
-        st.markdown('<p style="color:#7a7a7a!important;font-size:12px;padding:0 24px;">No research yet.</p>', unsafe_allow_html=True)
 
 # =============================================================================
 # MAIN HEADER
@@ -551,7 +524,6 @@ with col_main:
         now = datetime.now()
         is_company = is_company_query(company)
         mode_label = "Company Analysis" if is_company else "Topic Intelligence"
-        st.session_state.search_history.insert(0, {"name":f"{company[:30]} • {mode_label}","time":now.strftime("%I:%M %p")})
         st.session_state.active_view = "Overview"
         task_id = abs(hash(company + now.isoformat())) % 10000
 
