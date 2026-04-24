@@ -299,7 +299,30 @@ COMMON_TICKERS = {
     "johnson & johnson": "JNJ", "abbvie": "ABBV", "merck": "MRK", "eli lilly": "LLY", "goldman": "GS",
     "blackstone": "BX", "charles schwab": "SCHW", "american express": "AXP", "visa": "V", "snap": "SNAP",
     "pinterest": "PINS", "roblox": "RBLX", "unity": "U", "activision": "ATVI", "electronic arts": "EA",
-    "take-two": "TTWO", "capcom": "9697.T", "bandai namco": "7832.T"
+    "take-two": "TTWO", "capcom": "9697.T", "bandai namco": "7832.T",
+    "abb": "ABBN.SW", "atlas copco": "ATCO-A.ST", "sandvik": "SAND.ST", "komatsu": "6301.T",
+    "kubota": "6326.T", "denso": "6902.T", "fanuc": "6273.T", "daikin": "6367.T", "hitachi": "6501.T",
+    "toshiba": "6502.T", "mitsubishi electric": "6503.T", "sumitomo": "8053.T", "marubeni": "8002.T",
+    "nomura": "8604.T", "mizuho": "8411.T", "smfg": "8316.T", "mufg": "8306.T", "posco": "005490.KS",
+    "naver": "035420.KS", "kakao": "035720.KS", "celltrion": "068270.KS", "hcl tech": "HCLTECH.NS",
+    "tech mahindra": "TECHM.NS", "jsw steel": "JSWSTEEL.NS", "hindalco": "HINDALCO.NS", "vedanta": "VEDL.NS",
+    "grasim": "GRASIM.NS", "ultratech": "ULTRACEMCO.NS", "apollo hospitals": "APOLLOHOSP.NS",
+    "dr reddy": "DRREDDY.NS", "sun pharma": "SUNPHARMA.NS", "cipla": "CIPLA.NS", "zydus": "ZYDUSLIFE.NS",
+    "havells": "HAVELLS.NS", "polycab": "POLYCAB.NS", "danone": "BN.PA", "pernod ricard": "RI.PA",
+    "kering": "KER.PA", "gucci": "KER.PA", "saint-gobain": "SGO.PA", "vinci": "DG.PA",
+    "schneider electric": "SU.PA", "orange": "ORA.PA", "telefonica": "TEF.MC", "repsol": "REP.MC",
+    "iberdrola": "IBE.MC", "enagas": "ENG.MC", "natwest": "NWG.L", "aviva": "AV.L", "prudential": "PRU.L",
+    "bt group": "BT-A.L", "reckitt": "RKT.L", "compass group": "CPG.L", "experian": "EXPN.L",
+    "equinor": "EQNR.OL", "yara": "YAR.OL", "mowi": "MOWI.OL", "telenor": "TEL.OL", "fortum": "FORTUM.HE",
+    "neste": "NESTE.HE", "stora enso": "STERV.HE", "kone": "KNEBV.HE", "air canada": "AC.TO",
+    "suncor": "SU.TO", "enbridge": "ENB.TO", "bank of montreal": "BMO.TO", "scotiabank": "BNS.TO",
+    "telus": "T.TO", "lululemon": "LULU", "monster beverage": "MNST", "chipotle": "CMG",
+    "door dash": "DASH", "instacart": "CART", "super micro": "SMCI", "applied materials": "AMAT",
+    "lam research": "LRCX", "kla": "KLAC", "synopsys": "SNPS", "cadence": "CDNS", "ansys": "ANSS",
+    "fortinet": "FTNT", "okta": "OKTA", "zscaler": "ZS", "cloudflare": "NET", "confluent": "CFLT",
+    "mongodb": "MDB", "twilio": "TWLO", "hubspot": "HUBS", "atlassian": "TEAM", "servicenow": "NOW",
+    "workday": "WDAY", "autodesk": "ADSK", "applovia": "APP", "draftkings": "DKNG",
+    "microstrategy": "MSTR", "sofi": "SOFI"
 }
 
 COMPANY_DOMAINS = {
