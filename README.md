@@ -60,6 +60,36 @@ An advanced, multi-agent financial intelligence terminal built with Streamlit. T
    - The *Qualitative Agent* scrapes recent news and institutional sentiment.
 4. **Synthesis**: The *Judge Agent* merges the data, strips out hallucinations, and renders a clean Markdown report directly into the dashboard.
 
+## 🏗️ Architecture Diagram
+
+```mermaid
+graph TD
+    User([User]) -->|Inputs Query| UI[Streamlit Frontend]
+    UI -->|Resolves Ticker| Resolver{Ticker & Typo<br/>Resolver}
+    
+    Resolver -->|Public Ticker| Dispatch[Parallel Agent Dispatch]
+    Resolver -->|Private Company| Private[Private Entity Handler]
+    Private --> UI
+    
+    subgraph Agent Pipeline
+        direction LR
+        Alpha[Quantitative Agent<br/>Researcher Alpha]
+        Beta[Qualitative Agent<br/>Researcher Beta]
+    end
+    
+    Dispatch --> Alpha
+    Dispatch --> Beta
+    
+    Alpha <-->|Fetches Market Data| YF[(yfinance API)]
+    Beta <-->|Web Search & Sentiment| Tavily[(Tavily API)]
+    
+    Alpha --> Judge[Judge Agent<br/>Groq LLM]
+    Beta --> Judge
+    
+    Judge -->|Synthesizes & Evaluates| Report[Executive Briefing Report]
+    Report --> UI
+```
+
 ## 📄 License
 
 MIT License - feel free to modify and use for your own research!
