@@ -134,13 +134,13 @@ def fetch_pexels_image(query):
     except: pass
     return None
 
-def get_color(v): return "#4edea3" if v>0 else "#ec4242" if v<0 else "#c5c6cd"
+def get_color(v): return "#419577" if v>0 else "#ec4242" if v<0 else "#7a7a7a"
 def get_arrow(v): return "arrow_drop_up" if v>0 else "arrow_drop_down" if v<0 else "remove"
 def compute_signal(s): return "ACCUMULATE" if s>70 else "HOLD" if s>50 else "REDUCE" if s>30 else "SELL"
 def compute_vol(s): return "LOW" if s>65 else "MEDIUM" if s>40 else "HIGH"
-def vol_color(v): return "#ec4242" if v=="LOW" else "#ffb3ad" if v=="MEDIUM" else "#4edea3"
-def sig_color(s): return "#4edea3" if s in("ACCUMULATE","BUY") else "#b9c7e4" if s=="HOLD" else "#ec4242"
-def cat_color(c): return {"SEMICONDUCTORS":"#4edea3","ENERGY":"#ec4242","MACRO":"#b9c7e4","CRYPTO":"#8B5CF6","MARKETS":"#EC4899"}.get(c,"#c5c6cd")
+def vol_color(v): return "#ec4242" if v=="LOW" else "#F5AB41" if v=="MEDIUM" else "#419577"
+def sig_color(s): return "#419577" if s in("ACCUMULATE","BUY") else "#F5D649" if s=="HOLD" else "#ec4242"
+def cat_color(c): return {"SEMICONDUCTORS":"#419577","ENERGY":"#ec4242","MACRO":"#F5D649","CRYPTO":"#8B5CF6","MARKETS":"#F5AB41"}.get(c,"#7a7a7a")
 def insight_sentiment(b):
     neg = ["risk","headwind","decline","threat","antitrust","regulatory","warning","debt","downturn","concern","drop","weak","investigation"]
     return "negative" if any(w in b.lower() for w in neg) else "positive"
@@ -164,6 +164,41 @@ def is_company_query(text):
     if len(words) <= 4 and not any(w in t for w in ["?","!"]):
         return True
     return False
+
+def extract_catalyst_risk(company, alpha_data, beta_data):
+    """Use Groq to extract one upside catalyst and one risk factor from existing reports."""
+    from langchain_groq import ChatGroq
+    from langchain_core.prompts import ChatPromptTemplate
+    llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0.3)
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "You are a concise financial analyst. Extract exactly one upside catalyst and one risk exposure from the provided reports. Keep each to exactly 1 sentence (max 25 words). Be specific to the company — mention actual products, markets, competitors, or financial metrics."),
+        ("user", """Company: {company}
+
+Quantitative Report:
+{alpha}
+
+Qualitative Report:
+{beta}
+
+Respond in EXACTLY this format (no extra text):
+CATALYST: [one sentence about the strongest upside catalyst]
+RISK: [one sentence about the biggest risk exposure]""")
+    ])
+    try:
+        response = (prompt | llm).invoke({"company": company, "alpha": alpha_data[:1500], "beta": beta_data[:1500]})
+        text = response.content
+        catalyst = "Strong growth momentum detected in core business segments."
+        risk = "Competitive and regulatory headwinds could pressure near-term margins."
+        for line in text.strip().split("\n"):
+            line = line.strip()
+            if line.upper().startswith("CATALYST:"):
+                catalyst = line.split(":", 1)[1].strip()
+            elif line.upper().startswith("RISK:"):
+                risk = line.split(":", 1)[1].strip()
+        return catalyst, risk
+    except:
+        return ("Strong growth momentum detected in core business segments.",
+                "Competitive and regulatory headwinds could pressure near-term margins.")
 
 def run_topic_analysis(topic):
     """Search Tavily for a general topic and summarize with Groq into 3 Key Insights."""
@@ -208,111 +243,116 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 .material-symbols-outlined{font-family:'Material Symbols Outlined';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;vertical-align:middle;}
 
-.stApp{background-color:#031427!important;color:#d3e4fe!important;font-family:'Inter',sans-serif!important;}
+.stApp{background-color:#FDF5EC!important;color:#2D3436!important;font-family:'Inter',sans-serif!important;}
 header{visibility:hidden!important;}
-[data-testid="stSidebar"]{background-color:#112240!important;border-right:1px solid rgba(51,65,85,0.5)!important;}
-[data-testid="stSidebar"] *{color:#94a3b8!important;}
-h1,h2,h3,h4,h5,h6,p,span,div,.stMarkdown{color:#d3e4fe!important;}
+[data-testid="stSidebar"]{background-color:#fff8f0!important;border-right:1px solid #E0D5C7!important;}
+[data-testid="stSidebar"] *{color:#5a5a5a!important;}
+h1,h2,h3,h4,h5,h6{color:#419577!important;}
+p,span,div,.stMarkdown{color:#2D3436!important;}
 
 /* Containers */
-div[data-testid="stVerticalBlockBorderWrapper"]{background-color:#1b2b3f!important;border:1px solid #44474d!important;border-radius:8px!important;}
+div[data-testid="stVerticalBlockBorderWrapper"]{background-color:#FFFFFF!important;border:1px solid #E0D5C7!important;border-radius:8px!important;}
 
 /* Chat Input */
-[data-testid="stChatInput"]{background-color:#112240!important;border:1px solid rgba(51,65,85,0.7)!important;border-radius:16px!important;}
-[data-testid="stChatInput"] input{color:#d3e4fe!important;}
-[data-testid="stChatInput"] button{background-color:#4edea3!important;border-radius:12px!important;}
+[data-testid="stChatInput"]{background-color:#FFFFFF!important;border:1px solid #E0D5C7!important;border-radius:16px!important;}
+[data-testid="stChatInput"] input{color:#2D3436!important;}
+[data-testid="stChatInput"] button{background-color:#F5D649!important;border-radius:12px!important;}
 
 /* Scrollbar */
 ::-webkit-scrollbar{width:4px;height:4px}
-::-webkit-scrollbar-track{background:#0a192f}
-::-webkit-scrollbar-thumb{background:#26364a;border-radius:10px}
+::-webkit-scrollbar-track{background:#FDF5EC}
+::-webkit-scrollbar-thumb{background:#E0D5C7;border-radius:10px}
 
 /* Sidebar Nav Item Active */
-.nav-active{background:#1E293B;border-left:4px solid #4edea3;color:#4edea3!important;}
+.nav-active{background:#FDF5EC;border-left:4px solid #419577;color:#419577!important;}
 .nav-item{padding:12px 24px;display:flex;align-items:center;gap:16px;cursor:pointer;transition:all 0.2s;}
-.nav-item:hover{background:#1E293B;}
+.nav-item:hover{background:#FDF5EC;}
 .nav-label{font-size:12px;letter-spacing:0.05em;font-weight:600;text-transform:uppercase;}
 
 /* Ticker */
-.ticker-row{display:flex;align-items:center;gap:0;background:#102034;border-bottom:1px solid rgba(51,65,85,0.5);padding:0 24px;height:40px;margin-bottom:0;}
-.ticker-item{display:flex;align-items:center;gap:8px;padding-right:32px;border-right:1px solid rgba(51,65,85,0.5);margin-right:0;padding-left:32px;}
+.ticker-row{display:flex;align-items:center;gap:0;background:#F5D649;border-bottom:1px solid rgba(0,0,0,0.08);padding:0 24px;height:40px;margin-bottom:0;}
+.ticker-item{display:flex;align-items:center;gap:8px;padding-right:32px;border-right:1px solid rgba(0,0,0,0.12);margin-right:0;padding-left:32px;}
 .ticker-item:first-child{padding-left:0;}
 .ticker-item:last-child{border-right:none;}
-.ticker-lbl{font-size:10px;color:#c5c6cd;text-transform:uppercase;font-weight:600;letter-spacing:0.05em;}
-.ticker-val{font-size:14px;font-weight:500;font-family:'Inter',monospace;}
+.ticker-lbl{font-size:10px;color:#2D3436;text-transform:uppercase;font-weight:600;letter-spacing:0.05em;}
+.ticker-val{font-size:14px;font-weight:500;font-family:'Inter',monospace;color:#2D3436;}
 .ticker-chg{font-size:12px;font-weight:500;display:flex;align-items:center;}
 
 /* Top Nav */
-.topnav{display:flex;justify-content:space-between;align-items:center;padding:0 24px;height:64px;background:#0A192F;border-bottom:1px solid rgba(51,65,85,0.5);}
-.topnav-brand{font-size:18px;font-weight:900;color:#fff!important;text-transform:uppercase;font-family:'Manrope',sans-serif;letter-spacing:-0.02em;}
-.topnav-link{font-size:14px;color:#64748b!important;text-decoration:none;transition:color 0.2s;}
-.topnav-link-active{color:#4edea3!important;font-weight:700;border-bottom:2px solid #4edea3;padding-bottom:4px;}
+.topnav{display:flex;justify-content:space-between;align-items:center;padding:0 24px;height:64px;background:#FDF5EC;border-bottom:1px solid #E0D5C7;}
+.topnav-brand{font-size:18px;font-weight:900;color:#419577!important;text-transform:uppercase;font-family:'Manrope',sans-serif;letter-spacing:-0.02em;}
+.topnav-link{font-size:14px;color:#7a7a7a!important;text-decoration:none;transition:color 0.2s;}
+.topnav-link-active{color:#419577!important;font-weight:700;border-bottom:2px solid #419577;padding-bottom:4px;}
 
 /* Sections */
-.section-label{font-size:12px;letter-spacing:0.05em;font-weight:600;text-transform:uppercase;color:#c5c6cd!important;margin-bottom:16px;}
-.metric-label{font-size:10px;letter-spacing:0.05em;font-weight:600;text-transform:uppercase;color:#c5c6cd!important;}
+.section-label{font-size:12px;letter-spacing:0.05em;font-weight:600;text-transform:uppercase;color:#7a7a7a!important;margin-bottom:16px;}
+.metric-label{font-size:10px;letter-spacing:0.05em;font-weight:600;text-transform:uppercase;color:#7a7a7a!important;}
 .metric-value{font-size:24px;font-weight:600;font-family:'Manrope',sans-serif;letter-spacing:-0.01em;}
-.insight-title{font-size:12px;color:#4edea3!important;text-transform:uppercase;letter-spacing:0.05em;font-weight:600;border-bottom:1px solid rgba(78,222,163,0.2);padding-bottom:8px;margin-bottom:16px;}
+.insight-title{font-size:12px;color:#419577!important;text-transform:uppercase;letter-spacing:0.05em;font-weight:600;border-bottom:1px solid rgba(65,149,119,0.3);padding-bottom:8px;margin-bottom:16px;}
 .insight-item{display:flex;gap:12px;margin-bottom:16px;line-height:1.6;}
-.insight-text{font-size:16px;color:#d3e4fe!important;}
-.insight-bold{font-weight:700;color:#fff!important;}
+.insight-text{font-size:16px;color:#2D3436!important;}
+.insight-bold{font-weight:700;color:#1a1a1a!important;}
 
 /* Log */
-.perf-log{background:#0b1c30;padding:16px;border-radius:8px;font-family:'Inter',monospace;font-size:14px;border-left:2px solid #4edea3;}
+.perf-log{background:#fff8f0;padding:16px;border-radius:8px;font-family:'Inter',monospace;font-size:14px;border-left:2px solid #419577;}
 .log-line{margin-bottom:4px;}
-.log-dim{color:#64748b!important;}
-.log-highlight{color:#4edea3!important;}
+.log-dim{color:#7a7a7a!important;}
+.log-highlight{color:#419577!important;}
 
 /* News */
-.news-card{background:#0d1f36;border:1px solid rgba(51,65,85,0.5);border-radius:12px;padding:16px;margin-bottom:24px;cursor:pointer;transition:transform 0.2s, box-shadow 0.2s, border-color 0.2s;}
-.news-card:hover{transform:translateY(-2px);box-shadow:0 8px 16px rgba(0,0,0,0.2);border-color:rgba(78,222,163,0.3);}
+.news-card{background:#FFFFFF;border:1px solid #E0D5C7;border-radius:12px;padding:16px;margin-bottom:24px;cursor:pointer;transition:transform 0.2s, box-shadow 0.2s, border-color 0.2s;}
+.news-card:hover{transform:translateY(-2px);box-shadow:0 8px 16px rgba(0,0,0,0.08);border-color:#F5AB41;}
 .news-img{width:100%;height:120px;object-fit:cover;border-radius:8px;margin-bottom:16px;opacity:0.9;}
 .news-img:hover{opacity:1;}
 .news-cat{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;}
-.news-title{font-size:14px;color:#fff!important;font-weight:600;font-family:'Manrope',sans-serif;margin-top:8px;line-height:1.4;}
-.news-meta{font-size:10px;color:#64748b!important;margin-top:12px;font-weight:600;letter-spacing:0.05em;}
+.news-title{font-size:14px;color:#2D3436!important;font-weight:600;font-family:'Manrope',sans-serif;margin-top:8px;line-height:1.4;}
+.news-meta{font-size:10px;color:#7a7a7a!important;margin-top:12px;font-weight:600;letter-spacing:0.05em;}
 
 /* History */
 .hist-card{padding:12px;border-radius:8px;margin-bottom:12px;cursor:pointer;transition:all 0.2s;}
-.hist-card-active{background:#1b2b3f;border:1px solid #44474d;}
+.hist-card-active{background:#FDF5EC;border:1px solid #E0D5C7;}
 .hist-card-inactive{background:transparent;border:1px solid transparent;}
-.hist-card:hover{background:#1b2b3f;}
-.hist-title{font-size:14px;color:#d3e4fe!important;line-height:1.4;}
-.hist-meta{font-size:10px;color:#c5c6cd!important;font-weight:600;letter-spacing:0.05em;}
+.hist-card:hover{background:#FDF5EC;}
+.hist-title{font-size:14px;color:#2D3436!important;line-height:1.4;}
+.hist-meta{font-size:10px;color:#7a7a7a!important;font-weight:600;letter-spacing:0.05em;}
 
 /* Badge */
-.exec-badge{background:rgba(78,222,163,0.1);color:#4edea3!important;border:1px solid rgba(78,222,163,0.2);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:-0.02em;}
-.task-id{font-size:10px;color:#c5c6cd!important;font-weight:700;text-transform:uppercase;margin-left:8px;}
+.exec-badge{background:rgba(65,149,119,0.1);color:#419577!important;border:1px solid rgba(65,149,119,0.3);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:-0.02em;}
+.task-id{font-size:10px;color:#7a7a7a!important;font-weight:700;text-transform:uppercase;margin-left:8px;}
 
 /* Portfolio Alert */
-.portfolio-alert{background:#1b2b3f;border:1px solid #44474d;border-radius:16px;padding:24px;margin-top:40px;}
-.portfolio-title{font-size:14px;color:#fff!important;font-weight:600;font-family:'Manrope',sans-serif;margin-bottom:8px;}
-.portfolio-text{font-size:12px;color:#c5c6cd!important;line-height:1.5;}
-.portfolio-btn{margin-top:16px;color:#4edea3!important;font-size:10px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;border:1px solid rgba(78,222,163,0.3);padding:8px 12px;border-radius:4px;background:transparent;width:100%;text-align:center;cursor:pointer;}
+.portfolio-alert{background:#FFFFFF;border:1px solid #E0D5C7;border-radius:16px;padding:24px;margin-top:40px;}
+.portfolio-title{font-size:14px;color:#419577!important;font-weight:600;font-family:'Manrope',sans-serif;margin-bottom:8px;}
+.portfolio-text{font-size:12px;color:#5a5a5a!important;line-height:1.5;}
+.portfolio-btn{margin-top:16px;color:#419577!important;font-size:10px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;border:1px solid rgba(65,149,119,0.3);padding:8px 12px;border-radius:4px;background:transparent;width:100%;text-align:center;cursor:pointer;}
 
 /* Mini Chart */
-.mini-chart{height:96px;width:100%;background:#0b1c30;border-radius:4px;display:flex;align-items:flex-end;padding:8px;gap:4px;margin-bottom:16px;}
+.mini-chart{height:96px;width:100%;background:#fff8f0;border-radius:4px;display:flex;align-items:flex-end;padding:8px;gap:4px;margin-bottom:16px;}
 .mini-bar{flex:1;}
 
 /* Metrics divider */
-.metrics-row{display:flex;align-items:center;gap:0;padding:16px 0;border-top:1px solid rgba(51,65,85,0.5);border-bottom:1px solid rgba(51,65,85,0.5);}
+.metrics-row{display:flex;align-items:center;gap:0;padding:16px 0;border-top:1px solid #E0D5C7;border-bottom:1px solid #E0D5C7;}
 .metric-col{display:flex;flex-direction:column;}
-.metric-col+.metric-col{border-left:1px solid rgba(51,65,85,0.5);padding-left:24px;margin-left:24px;}
+.metric-col+.metric-col{border-left:1px solid #E0D5C7;padding-left:24px;margin-left:24px;}
 
 /* Company Logo */
-.company-logo{width:48px;height:48px;border-radius:12px;object-fit:contain;background:#112240;border:1px solid #44474d;}
-.company-initial{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#4edea3,#112240);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff!important;font-family:'Manrope',sans-serif;flex-shrink:0;}
+.company-logo{width:48px;height:48px;border-radius:12px;object-fit:contain;background:#fff8f0;border:1px solid #E0D5C7;}
+.company-initial{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#419577,#F5AB41);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff!important;font-family:'Manrope',sans-serif;flex-shrink:0;}
 .company-header{display:flex;align-items:center;gap:16px;margin-bottom:16px;}
 
 /* Sidebar Toggle */
-button[data-testid="stBaseButton-header"]{background:#112240!important;border:1px solid rgba(78,222,163,0.3)!important;border-radius:8px!important;color:#4edea3!important;}
+button[data-testid="stBaseButton-header"]{background:#FFFFFF!important;border:1px solid rgba(65,149,119,0.3)!important;border-radius:8px!important;color:#419577!important;}
 [data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"]{display:block!important;}
 
 /* Sidebar active nav link */
-.nav-link{display:flex;align-items:center;gap:16px;padding:12px 24px;cursor:pointer;transition:all 0.2s;text-decoration:none;color:#94a3b8!important;}
-.nav-link:hover{background:#1E293B;color:#fff!important;}
-.nav-link-active{background:#1E293B;border-left:4px solid #4edea3;color:#4edea3!important;}
-.nav-link-active .nav-label{color:#4edea3!important;}
+.nav-link{display:flex;align-items:center;gap:16px;padding:12px 24px;cursor:pointer;transition:all 0.2s;text-decoration:none;color:#5a5a5a!important;}
+.nav-link:hover{background:#FDF5EC;color:#419577!important;}
+.nav-link-active{background:#FDF5EC;border-left:4px solid #419577;color:#419577!important;}
+.nav-link-active .nav-label{color:#419577!important;}
+
+/* Streamlit buttons override */
+.stButton>button{background-color:#419577!important;color:#fff!important;border:none!important;font-weight:600!important;border-radius:8px!important;transition:all 0.2s!important;}
+.stButton>button:hover{background-color:#357a62!important;color:#fff!important;transform:translateY(-1px)!important;box-shadow:0 4px 12px rgba(65,149,119,0.3)!important;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -334,12 +374,12 @@ with st.sidebar:
     st.markdown("""
     <div style="padding:24px 24px 0 24px;">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:32px;">
-            <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#4edea3,#0a192f);display:flex;align-items:center;justify-content:center;">
+            <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#419577,#F5AB41);display:flex;align-items:center;justify-content:center;">
                 <span style="color:#fff!important;font-size:14px;font-weight:bold;">Q</span>
             </div>
             <div>
-                <div style="color:#fff!important;font-weight:700;font-family:'Manrope',sans-serif;font-size:14px;text-transform:uppercase;letter-spacing:-0.02em;">Terminal v4.2</div>
-                <div style="font-size:10px;color:#4edea3!important;font-weight:600;letter-spacing:0.05em;">System Status: Active</div>
+                <div style="color:#419577!important;font-weight:700;font-family:'Manrope',sans-serif;font-size:14px;text-transform:uppercase;letter-spacing:-0.02em;">Terminal v4.2</div>
+                <div style="font-size:10px;color:#419577!important;font-weight:600;letter-spacing:0.05em;">System Status: Active</div>
             </div>
         </div>
     </div>
@@ -358,15 +398,15 @@ with st.sidebar:
         cls = "hist-card-active" if i==0 else "hist-card-inactive"
         st.markdown(f'<div class="hist-card {cls}" style="margin: 0 24px 8px 24px;"><p class="hist-title">{item["name"][:40]}</p><span class="hist-meta">{item["time"]} • Deep Scan</span></div>', unsafe_allow_html=True)
     if not st.session_state.search_history:
-        st.markdown('<p style="color:#64748b!important;font-size:12px;padding:0 24px;">No research yet.</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color:#7a7a7a!important;font-size:12px;padding:0 24px;">No research yet.</p>', unsafe_allow_html=True)
 
 # =============================================================================
 # MAIN HEADER
 # =============================================================================
 st.markdown("""
 <div style="margin-bottom: 24px; margin-top: -16px; text-align: center;">
-    <h1 style="font-family: 'Manrope', sans-serif; font-size: 46px; font-weight: 900; margin: 0; padding: 0; background: linear-gradient(135deg, #4edea3, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.02em;">Financial News Briefer</h1>
-    <p style="color: #64748b!important; font-size: 13px; margin: 8px 0 0 0; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;">Intelligent Multi-Agent Terminal</p>
+    <h1 style="font-family: 'Manrope', sans-serif; font-size: 46px; font-weight: 900; margin: 0; padding: 0; background: linear-gradient(135deg, #419577, #F5AB41); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.02em;">Financial News Briefer</h1>
+    <p style="color: #7a7a7a!important; font-size: 13px; margin: 8px 0 0 0; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;">Intelligent Multi-Agent Terminal</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -377,7 +417,7 @@ nav_cols = st.columns([1,1,1,8])
 for idx, view_name in enumerate(["Overview","Forecasting","Sentiment"]):
     with nav_cols[idx]:
         is_active = st.session_state.active_view == view_name
-        style = "color:#4edea3!important;font-weight:700;" if is_active else "color:#64748b!important;"
+        style = "color:#419577!important;font-weight:700;" if is_active else "color:#7a7a7a!important;"
         if st.button(view_name, key=f"view_{view_name}", use_container_width=True):
             st.session_state.active_view = view_name
             st.rerun()
@@ -407,15 +447,15 @@ with col_news:
         if pexels_data:
             img_html = f'<img class="news-img" src="{pexels_data["url"]}" alt="{pexels_data.get("alt","")}" />'
         else:
-            fallback_grads = ["linear-gradient(135deg,#0a192f,#112240,#4edea3)","linear-gradient(135deg,#0a192f,#3c0003,#ec4242)","linear-gradient(135deg,#0a192f,#26364a,#b9c7e4)"]
+            fallback_grads = ["linear-gradient(135deg,#419577,#FDF5EC,#F5D649)","linear-gradient(135deg,#F5AB41,#FDF5EC,#419577)","linear-gradient(135deg,#F5D649,#FDF5EC,#F5AB41)"]
             img_html = f'<div style="width:100%;height:96px;border-radius:8px;margin-bottom:12px;background:{fallback_grads[i%3]};"></div>'
             
         st.markdown(f"""
         <div class="news-card">
-            <a href="{news["url"]}" target="_blank" style="text-decoration: none; display: block;">
+            <a href="{news['url']}" target="_blank" style="text-decoration: none; display: block;">
                 {img_html}
                 <span class="news-cat" style="color:{cc}!important;">{news["category"]}</span>
-                <div class="news-title" style="color:#ffffff;">{news["title"][:65]}</div>
+                <div class="news-title" style="color:#2D3436;">{news["title"][:65]}</div>
             </a>
         </div>
         """, unsafe_allow_html=True)
@@ -432,78 +472,77 @@ with col_main:
     # VIEW ROUTING: Overview / Forecasting / Sentiment
     # =========================================================================
     if st.session_state.active_view == "Forecasting":
-        st.markdown('<span class="exec-badge" style="background:rgba(185,199,228,0.1)!important;color:#b9c7e4!important;border-color:rgba(185,199,228,0.2)!important;">FORECASTING ENGINE</span>', unsafe_allow_html=True)
-        st.markdown('<h1 style="font-size:30px;font-weight:700;font-family:Manrope,sans-serif;color:#fff!important;margin-top:12px;">Market Forecasting & Predictive Models</h1>', unsafe_allow_html=True)
-        st.markdown('<p style="color:#c5c6cd!important; margin-bottom: 24px;">AI-driven forecasts based on historical patterns, options flow, and macroeconomic indicators.</p>', unsafe_allow_html=True)
+        st.markdown('<span class="exec-badge" style="background:rgba(245,171,65,0.1)!important;color:#F5AB41!important;border-color:rgba(245,171,65,0.3)!important;">FORECASTING ENGINE</span>', unsafe_allow_html=True)
+        st.markdown('<h1 style="font-size:30px;font-weight:700;font-family:Manrope,sans-serif;color:#419577!important;margin-top:12px;">Market Forecasting & Predictive Models</h1>', unsafe_allow_html=True)
+        st.markdown('<p style="color:#5a5a5a!important; margin-bottom: 24px;">AI-driven forecasts based on historical patterns, options flow, and macroeconomic indicators.</p>', unsafe_allow_html=True)
         
         c1, c2, c3 = st.columns(3)
         with c1:
-            st.markdown('<div style="padding:20px;background:#1b2b3f;border:1px solid #44474d;border-radius:12px;text-align:center;"><span style="color:#94a3b8;font-size:14px;">Probability of Rate Cut (Q3)</span><h2 style="color:#4edea3;margin:8px 0;font-size:32px;">68.4%</h2><span style="color:#4edea3;font-size:12px;">▲ 4.2% from last week</span></div>', unsafe_allow_html=True)
+            st.markdown('<div style="padding:20px;background:#FFFFFF;border:1px solid #E0D5C7;border-radius:12px;text-align:center;"><span style="color:#7a7a7a;font-size:14px;">Probability of Rate Cut (Q3)</span><h2 style="color:#419577;margin:8px 0;font-size:32px;">68.4%</h2><span style="color:#419577;font-size:12px;">▲ 4.2% from last week</span></div>', unsafe_allow_html=True)
         with c2:
-            st.markdown('<div style="padding:20px;background:#1b2b3f;border:1px solid #44474d;border-radius:12px;text-align:center;"><span style="color:#94a3b8;font-size:14px;">Market Volatility Risk</span><h2 style="color:#ffb3ad;margin:8px 0;font-size:32px;">ELEVATED</h2><span style="color:#ffb3ad;font-size:12px;">VIX approaching 20.0 level</span></div>', unsafe_allow_html=True)
+            st.markdown('<div style="padding:20px;background:#FFFFFF;border:1px solid #E0D5C7;border-radius:12px;text-align:center;"><span style="color:#7a7a7a;font-size:14px;">Market Volatility Risk</span><h2 style="color:#F5AB41;margin:8px 0;font-size:32px;">ELEVATED</h2><span style="color:#F5AB41;font-size:12px;">VIX approaching 20.0 level</span></div>', unsafe_allow_html=True)
         with c3:
-            st.markdown('<div style="padding:20px;background:#1b2b3f;border:1px solid #44474d;border-radius:12px;text-align:center;"><span style="color:#94a3b8;font-size:14px;">S&P 500 Year-End Target</span><h2 style="color:#fff;margin:8px 0;font-size:32px;">5,850</h2><span style="color:#94a3b8;font-size:12px;">Consensus Base Case</span></div>', unsafe_allow_html=True)
+            st.markdown('<div style="padding:20px;background:#FFFFFF;border:1px solid #E0D5C7;border-radius:12px;text-align:center;"><span style="color:#7a7a7a;font-size:14px;">S&P 500 Year-End Target</span><h2 style="color:#2D3436;margin:8px 0;font-size:32px;">5,850</h2><span style="color:#7a7a7a;font-size:12px;">Consensus Base Case</span></div>', unsafe_allow_html=True)
         
-        st.markdown('<h2 style="font-size:20px;font-weight:600;color:#fff;margin-top:32px;border-bottom:1px solid #1E293B;padding-bottom:12px;">Sector Outlook (Next 30 Days)</h2>', unsafe_allow_html=True)
+        st.markdown('<h2 style="font-size:20px;font-weight:600;color:#419577;margin-top:32px;border-bottom:1px solid #E0D5C7;padding-bottom:12px;">Sector Outlook (Next 30 Days)</h2>', unsafe_allow_html=True)
         sectors = [
-            ("Technology", "Bullish", 78, "#4edea3"),
-            ("Energy", "Neutral", 45, "#b9c7e4"),
-            ("Financials", "Bullish", 62, "#4edea3"),
+            ("Technology", "Bullish", 78, "#419577"),
+            ("Energy", "Neutral", 45, "#F5D649"),
+            ("Financials", "Bullish", 62, "#419577"),
             ("Consumer Discretionary", "Bearish", 28, "#ec4242"),
-            ("Healthcare", "Neutral", 50, "#b9c7e4")
+            ("Healthcare", "Neutral", 50, "#F5D649")
         ]
         for sec, dir, val, col in sectors:
             st.markdown(f'''
             <div style="display:flex;align-items:center;margin:16px 0;">
-                <div style="width:180px;color:#c5c6cd;font-weight:500;">{sec}</div>
-                <div style="flex-grow:1;height:8px;background:#0f172a;border-radius:4px;margin:0 16px;overflow:hidden;">
+                <div style="width:180px;color:#5a5a5a;font-weight:500;">{sec}</div>
+                <div style="flex-grow:1;height:8px;background:#E0D5C7;border-radius:4px;margin:0 16px;overflow:hidden;">
                     <div style="width:{val}%;height:100%;background:{col};border-radius:4px;"></div>
                 </div>
                 <div style="width:80px;text-align:right;color:{col};font-weight:700;">{dir}</div>
             </div>
             ''', unsafe_allow_html=True)
             
-        st.markdown('<h2 style="font-size:20px;font-weight:600;color:#fff;margin-top:32px;border-bottom:1px solid #1E293B;padding-bottom:12px;">Asset Signals</h2>', unsafe_allow_html=True)
+        st.markdown('<h2 style="font-size:20px;font-weight:600;color:#419577;margin-top:32px;border-bottom:1px solid #E0D5C7;padding-bottom:12px;">Asset Signals</h2>', unsafe_allow_html=True)
         for lbl, d in ticker_data.items():
             direction = "ACCUMULATE" if d["change"] > 0 else "REDUCE" if d["change"] < 0 else "HOLD"
             color = get_color(d["change"])
-            st.markdown(f'<div style="padding:16px;margin-bottom:8px;background:rgba(27,43,63,0.5);border-radius:8px;display:flex;justify-content:space-between;align-items:center;"><div style="display:flex;align-items:center;gap:12px;"><strong style="color:#fff!important;font-size:16px;width:100px;">{lbl}</strong><span style="color:#94a3b8!important;font-size:14px;">Spot: {d["price"]:,.2f}</span></div><div><span style="color:{color}!important;font-weight:700;background:{color}20;padding:4px 12px;border-radius:4px;font-size:12px;">{direction} ({d["change"]:+.2f}%)</span></div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="padding:16px;margin-bottom:8px;background:#FFFFFF;border:1px solid #E0D5C7;border-radius:8px;display:flex;justify-content:space-between;align-items:center;"><div style="display:flex;align-items:center;gap:12px;"><strong style="color:#2D3436!important;font-size:16px;width:100px;">{lbl}</strong><span style="color:#7a7a7a!important;font-size:14px;">Spot: {d["price"]:,.2f}</span></div><div><span style="color:{color}!important;font-weight:700;background:{color}20;padding:4px 12px;border-radius:4px;font-size:12px;">{direction} ({d["change"]:+.2f}%)</span></div></div>', unsafe_allow_html=True)
 
     elif st.session_state.active_view == "Sentiment":
-        st.markdown('<span class="exec-badge" style="background:rgba(185,199,228,0.1)!important;color:#b9c7e4!important;border-color:rgba(185,199,228,0.2)!important;">SENTIMENT SCANNER</span>', unsafe_allow_html=True)
-        st.markdown('<h1 style="font-size:30px;font-weight:700;font-family:Manrope,sans-serif;color:#fff!important;margin-top:12px;">Global Market Sentiment Matrix</h1>', unsafe_allow_html=True)
-        st.markdown('<p style="color:#c5c6cd!important; margin-bottom: 24px;">Real-time NLP sentiment extraction across global financial media, social chatter, and institutional notes.</p>', unsafe_allow_html=True)
-        
+        st.markdown('<span class="exec-badge" style="background:rgba(245,214,73,0.1)!important;color:#F5D649!important;border-color:rgba(245,214,73,0.3)!important;">SENTIMENT SCANNER</span>', unsafe_allow_html=True)
+        st.markdown('<h1 style="font-size:30px;font-weight:700;font-family:Manrope,sans-serif;color:#419577!important;margin-top:12px;">Global Market Sentiment Matrix</h1>', unsafe_allow_html=True)
+        st.markdown('<p style="color:#5a5a5a!important; margin-bottom: 24px;">Real-time NLP sentiment extraction across global financial media, social chatter, and institutional notes.</p>', unsafe_allow_html=True)
         st.markdown('''
         <div style="display:flex;gap:16px;margin-bottom:32px;">
-            <div style="flex:1;background:#1b2b3f;border:1px solid #44474d;border-radius:12px;padding:20px;">
-                <div style="color:#94a3b8;font-size:14px;margin-bottom:12px;">Overall Macro Sentiment</div>
+            <div style="flex:1;background:#FFFFFF;border:1px solid #E0D5C7;border-radius:12px;padding:20px;">
+                <div style="color:#7a7a7a;font-size:14px;margin-bottom:12px;">Overall Macro Sentiment</div>
                 <div style="display:flex;align-items:center;gap:16px;">
-                    <h2 style="color:#4edea3;margin:0;font-size:36px;">58/100</h2>
-                    <span style="background:rgba(78,222,163,0.1);color:#4edea3;padding:4px 8px;border-radius:4px;font-weight:600;font-size:14px;">CAUTIOUSLY OPTIMISTIC</span>
+                    <h2 style="color:#419577;margin:0;font-size:36px;">58/100</h2>
+                    <span style="background:rgba(65,149,119,0.1);color:#419577;padding:4px 8px;border-radius:4px;font-weight:600;font-size:14px;">CAUTIOUSLY OPTIMISTIC</span>
                 </div>
             </div>
-            <div style="flex:1;background:#1b2b3f;border:1px solid #44474d;border-radius:12px;padding:20px;">
-                <div style="color:#94a3b8;font-size:14px;margin-bottom:12px;">Fear & Greed Index</div>
+            <div style="flex:1;background:#FFFFFF;border:1px solid #E0D5C7;border-radius:12px;padding:20px;">
+                <div style="color:#7a7a7a;font-size:14px;margin-bottom:12px;">Fear & Greed Index</div>
                 <div style="display:flex;align-items:center;gap:16px;">
-                    <h2 style="color:#ffb3ad;margin:0;font-size:36px;">62</h2>
-                    <span style="background:rgba(255,179,173,0.1);color:#ffb3ad;padding:4px 8px;border-radius:4px;font-weight:600;font-size:14px;">GREED</span>
+                    <h2 style="color:#F5AB41;margin:0;font-size:36px;">62</h2>
+                    <span style="background:rgba(245,171,65,0.1);color:#F5AB41;padding:4px 8px;border-radius:4px;font-weight:600;font-size:14px;">GREED</span>
                 </div>
             </div>
         </div>
         ''', unsafe_allow_html=True)
 
-        st.markdown('<h2 style="font-size:20px;font-weight:600;color:#fff;margin-top:32px;border-bottom:1px solid #1E293B;padding-bottom:12px;">Live News Sentiment</h2>', unsafe_allow_html=True)
+        st.markdown('<h2 style="font-size:20px;font-weight:600;color:#419577;margin-top:32px;border-bottom:1px solid #E0D5C7;padding-bottom:12px;">Live News Sentiment</h2>', unsafe_allow_html=True)
         for news in trending_news[:5]:
             sent = insight_sentiment(news["title"])
             icon = "check_circle" if sent=="positive" else "warning"
-            ic = "#4edea3" if sent=="positive" else "#ec4242"
+            ic = "#419577" if sent=="positive" else "#ec4242"
             st.markdown(f'''
-            <div style="background:rgba(27,43,63,0.3);border-left:4px solid {ic};padding:16px;margin-bottom:12px;border-radius:0 8px 8px 0;display:flex;gap:16px;align-items:flex-start;">
+            <div style="background:rgba(253,245,236,0.5);border-left:4px solid {ic};padding:16px;margin-bottom:12px;border-radius:0 8px 8px 0;display:flex;gap:16px;align-items:flex-start;">
                 <span class="material-symbols-outlined" style="color:{ic}!important;font-size:24px;">{icon}</span>
                 <div>
-                    <span style="color:#94a3b8;font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">{news["category"]}</span>
-                    <p style="color:#fff;margin:4px 0 0 0;font-size:15px;line-height:1.5;">{news["title"]}</p>
+                    <span style="color:#7a7a7a;font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">{news["category"]}</span>
+                    <p style="color:#2D3436;margin:4px 0 0 0;font-size:15px;line-height:1.5;">{news["title"]}</p>
                 </div>
             </div>
             ''', unsafe_allow_html=True)
@@ -529,7 +568,7 @@ with col_main:
                 logo_html = f'<img class="company-logo" src="{company_img["url"]}" alt="{company}" />'
             else:
                 logo_html = f'<div class="company-initial">{initial}</div>'
-            st.markdown(f'<div class="company-header">{logo_html}<h1 style="font-size:30px;font-weight:700;font-family:Manrope,sans-serif;color:#fff!important;letter-spacing:-0.02em;line-height:38px;margin:0;">Market Analysis: {company}</h1></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="company-header">{logo_html}<h1 style="font-size:30px;font-weight:700;font-family:Manrope,sans-serif;color:#419577!important;letter-spacing:-0.02em;line-height:38px;margin:0;">Market Analysis: {company}</h1></div>', unsafe_allow_html=True)
 
             with st.status(f"Scanning Bloomberg, Reuters, Financial Times for {company}...", expanded=True) as status:
                 st.write(">> INITIALIZING ALPHA NODE (QUANT)...")
@@ -552,7 +591,7 @@ with col_main:
 
             st.markdown(f"""
             <div class="metrics-row">
-                <div class="metric-col"><span class="metric-label">Sentiment Score</span><span class="metric-value" style="color:#4edea3!important;">{score} / 100</span></div>
+                <div class="metric-col"><span class="metric-label">Sentiment Score</span><span class="metric-value" style="color:#419577!important;">{score} / 100</span></div>
                 <div class="metric-col"><span class="metric-label">Volatility Index</span><span class="metric-value" style="color:{vc}!important;">{volatility}</span></div>
                 <div class="metric-col"><span class="metric-label">Top Signal</span><span class="metric-value" style="color:{sc}!important;">{signal}</span></div>
             </div>
@@ -563,19 +602,20 @@ with col_main:
             if insights:
                 for ins in insights:
                     icon = "check_circle" if ins["sentiment"]=="positive" else "warning"
-                    ic = "#4edea3" if ins["sentiment"]=="positive" else "#ec4242"
+                    ic = "#419577" if ins["sentiment"]=="positive" else "#ec4242"
                     st.markdown(f'<div class="insight-item"><span class="material-symbols-outlined" style="color:{ic}!important;flex-shrink:0;">{icon}</span><p class="insight-text"><span class="insight-bold">{ins["title"]}:</span> {ins["body"]}</p></div>', unsafe_allow_html=True)
             else:
                 st.markdown(beta_data)
 
             st.markdown('<div style="height:24px;"></div>', unsafe_allow_html=True)
+            catalyst_text, risk_text = extract_catalyst_risk(company, alpha_data, beta_data)
             c1, c2 = st.columns(2)
             with c1:
-                bars = "".join([f'<div class="mini-bar" style="background:#4edea3;height:{20+i*13}%;"></div>' for i in range(6)])
-                st.markdown(f'<div style="padding:24px;background:#1b2b3f;border:1px solid #44474d;border-radius:12px;"><p class="metric-label" style="margin-bottom:16px;">Upside Catalyst</p><div class="mini-chart" style="background:linear-gradient(to top right,rgba(78,222,163,0.2),transparent);">{bars}</div><p style="font-size:12px;color:#c5c6cd!important;">Strong institutional inflow detected in high-beta assets over 48h period.</p></div>', unsafe_allow_html=True)
+                bars = "".join([f'<div class="mini-bar" style="background:#419577;height:{20+i*13}%;"></div>' for i in range(6)])
+                st.markdown(f'<div style="padding:24px;background:#FFFFFF;border:1px solid #E0D5C7;border-radius:12px;"><p class="metric-label" style="margin-bottom:16px;">Upside Catalyst</p><div class="mini-chart" style="background:linear-gradient(to top right,rgba(65,149,119,0.15),transparent);">{bars}</div><p style="font-size:12px;color:#5a5a5a!important;">{catalyst_text}</p></div>', unsafe_allow_html=True)
             with c2:
                 bars = "".join([f'<div class="mini-bar" style="background:#ec4242;height:{100-i*15}%;"></div>' for i in range(6)])
-                st.markdown(f'<div style="padding:24px;background:#1b2b3f;border:1px solid #44474d;border-radius:12px;"><p class="metric-label" style="margin-bottom:16px;">Risk Exposure</p><div class="mini-chart" style="background:linear-gradient(to top right,rgba(236,66,66,0.2),transparent);">{bars}</div><p style="font-size:12px;color:#c5c6cd!important;">Over-leveraging in consumer retail puts pressure on broader market liquidity.</p></div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="padding:24px;background:#FFFFFF;border:1px solid #E0D5C7;border-radius:12px;"><p class="metric-label" style="margin-bottom:16px;">Risk Exposure</p><div class="mini-chart" style="background:linear-gradient(to top right,rgba(236,66,66,0.15),transparent);">{bars}</div><p style="font-size:12px;color:#5a5a5a!important;">{risk_text}</p></div>', unsafe_allow_html=True)
 
             with st.expander("📄 Full Alpha Report (Quantitative)"):
                 st.markdown(alpha_data)
@@ -584,18 +624,18 @@ with col_main:
                 if unsplash_img:
                     st.markdown(f'''
                     <div style="margin-bottom: 24px;">
-                        <h3 style="color:#fff; font-size: 16px; margin: 0 0 16px 0;">Market Graphs & Charts</h3>
+                        <h3 style="color:#419577; font-size: 16px; margin: 0 0 16px 0;">Market Graphs &amp; Charts</h3>
                         <img src="{unsplash_img["url"]}" style="width:100%; max-height: 250px; object-fit: cover; border-radius: 8px; margin-bottom: 8px;" />
-                        <p style="color:#64748b; font-size:12px; text-align:right;">Photo by <a href="{unsplash_img["photo_url"]}" target="_blank" style="color:#64748b;">{unsplash_img["photographer"]}</a> on Unsplash</p>
+                        <p style="color:#7a7a7a; font-size:12px; text-align:right;">Photo by <a href="{unsplash_img["photo_url"]}" target="_blank" style="color:#7a7a7a;">{unsplash_img["photographer"]}</a> on Unsplash</p>
                     </div>
                     ''', unsafe_allow_html=True)
                 
                 # Mock Graph for Qualitative sentiment
-                bars = "".join([f'<div style="background:{col};height:{h}px;width:12px;border-radius:2px;"></div>' for col, h in zip(["#ec4242","#ffb3ad","#b9c7e4","#4edea3","#4edea3"], [40, 60, 30, 80, 100])])
+                bars = "".join([f'<div style="background:{col};height:{h}px;width:12px;border-radius:2px;"></div>' for col, h in zip(["#ec4242","#F5AB41","#F5D649","#419577","#419577"], [40, 60, 30, 80, 100])])
                 st.markdown(f'''
-                <div style="background:#1b2b3f; padding: 16px; border-radius: 8px; border: 1px solid #44474d; margin-bottom: 24px;">
-                    <h3 style="color:#fff; font-size: 16px; margin: 0 0 16px 0;">Sentiment Trend (30 Days)</h3>
-                    <div style="display:flex; align-items:flex-end; gap:8px; height: 100px; padding-bottom: 8px; border-bottom: 1px solid #1E293B;">
+                <div style="background:#FFFFFF; padding: 16px; border-radius: 8px; border: 1px solid #E0D5C7; margin-bottom: 24px;">
+                    <h3 style="color:#419577; font-size: 16px; margin: 0 0 16px 0;">Sentiment Trend (30 Days)</h3>
+                    <div style="display:flex; align-items:flex-end; gap:8px; height: 100px; padding-bottom: 8px; border-bottom: 1px solid #E0D5C7;">
                         {bars}
                     </div>
                 </div>
@@ -609,8 +649,8 @@ with col_main:
             # =================================================================
             # TOPIC MODE — Tavily search + single LLM summary
             # =================================================================
-            st.markdown(f'<div style="margin-bottom:16px;"><span class="exec-badge" style="background:rgba(185,199,228,0.1)!important;color:#b9c7e4!important;border-color:rgba(185,199,228,0.2)!important;">TOPIC INTELLIGENCE</span><span class="task-id">TASK ID: #TI-{task_id}</span></div>', unsafe_allow_html=True)
-            st.markdown(f'<h1 style="font-size:30px;font-weight:700;font-family:Manrope,sans-serif;color:#fff!important;letter-spacing:-0.02em;line-height:38px;margin-bottom:16px;">Topic Brief: {company}</h1>', unsafe_allow_html=True)
+            st.markdown(f'<div style="margin-bottom:16px;"><span class="exec-badge" style="background:rgba(245,171,65,0.1)!important;color:#F5AB41!important;border-color:rgba(245,171,65,0.3)!important;">TOPIC INTELLIGENCE</span><span class="task-id">TASK ID: #TI-{task_id}</span></div>', unsafe_allow_html=True)
+            st.markdown(f'<h1 style="font-size:30px;font-weight:700;font-family:Manrope,sans-serif;color:#419577!important;letter-spacing:-0.02em;line-height:38px;margin-bottom:16px;">Topic Brief: {company}</h1>', unsafe_allow_html=True)
 
             with st.status(f"Searching global sources for: {company}...", expanded=True) as status:
                 st.write(">> SCANNING TAVILY KNOWLEDGE BASE...")
@@ -622,7 +662,7 @@ with col_main:
             if insights:
                 for ins in insights:
                     icon = "check_circle" if ins["sentiment"]=="positive" else "warning"
-                    ic = "#4edea3" if ins["sentiment"]=="positive" else "#ec4242"
+                    ic = "#419577" if ins["sentiment"]=="positive" else "#ec4242"
                     st.markdown(f'<div class="insight-item"><span class="material-symbols-outlined" style="color:{ic}!important;flex-shrink:0;">{icon}</span><p class="insight-text"><span class="insight-bold">{ins["title"]}:</span> {ins["body"]}</p></div>', unsafe_allow_html=True)
             else:
                 st.markdown(topic_data)
@@ -631,6 +671,6 @@ with col_main:
                 st.markdown(topic_data)
 
     else:
-        st.markdown('<span class="exec-badge" style="background:#1E293B!important;color:#94a3b8!important;border-color:#44474d!important;">SYSTEM IDLE</span>', unsafe_allow_html=True)
-        st.markdown('<h1 style="font-size:30px;font-weight:700;font-family:Manrope,sans-serif;color:#475569!important;margin-top:12px;">Awaiting Execution Protocol</h1>', unsafe_allow_html=True)
-        st.markdown('<p style="color:#475569!important;">Enter a company name for full analysis, or type any topic for a quick intelligence brief.</p>', unsafe_allow_html=True)
+        st.markdown('<span class="exec-badge" style="background:rgba(224,213,199,0.3)!important;color:#7a7a7a!important;border-color:#E0D5C7!important;">SYSTEM IDLE</span>', unsafe_allow_html=True)
+        st.markdown('<h1 style="font-size:30px;font-weight:700;font-family:Manrope,sans-serif;color:#b0a89e!important;margin-top:12px;">Awaiting Execution Protocol</h1>', unsafe_allow_html=True)
+        st.markdown('<p style="color:#b0a89e!important;">Enter a company name for full analysis, or type any topic for a quick intelligence brief.</p>', unsafe_allow_html=True)
