@@ -275,7 +275,31 @@ COMMON_TICKERS = {
     "berkshire": "BRK-B", "paypal": "PYPL", "spotify": "SPOT", "snap": "SNAP",
     "snapchat": "SNAP", "twitter": "X", "palantir": "PLTR", "snowflake": "SNOW",
     "coinbase": "COIN", "robinhood": "HOOD", "qualcomm": "QCOM", "micron": "MU",
-    "arm": "ARM", "dell": "DELL", "hp": "HPQ"
+    "arm": "ARM", "dell": "DELL", "hp": "HPQ",
+    "volvo": "VOLV-B.ST", "renault": "RNO.PA", "stellantis": "STLAM.MI", "michelin": "ML.PA",
+    "bridgestone": "5108.T", "suzuki": "7269.T", "yamaha": "7272.T", "ashok leyland": "ASHOKLEY.NS",
+    "hero motocorp": "HEROMOTOCO.NS", "bajaj auto": "BAJAJ-AUTO.NS", "eicher motors": "EICHERMOT.NS",
+    "royal enfield": "EICHERMOT.NS", "axis bank": "AXISBANK.NS", "kotak mahindra": "KOTAKBANK.NS",
+    "itc": "ITC.NS", "larsen & toubro": "LT.NS", "asian paints": "ASIANPAINT.NS", "titan": "TITAN.NS",
+    "hindustan unilever": "HINDUNILVR.NS", "onmc": "ONGC.NS", "ntpc": "NTPC.NS", "coal india": "COALINDIA.NS",
+    "lg electronics": "066570.KS", "sk hynix": "000660.KS", "canon": "7751.T", "mitsubishi": "8058.T",
+    "mitsui": "8031.T", "itouchu": "8001.T", "keyence": "6861.T", "infineon": "IFX.DE", "basf": "BAS.DE",
+    "bayer": "BAYN.DE", "deutsche bank": "DBK.DE", "allianz": "ALV.DE", "lufthansa": "LHA.DE",
+    "enel": "ENEL.MI", "eni": "ENI.MI", "intesa sanpaolo": "ISP.MI", "bbva": "BBVA.MC", "santander": "SAN.MC",
+    "inditex": "ITX.MC", "zara": "ITX.MC", "barclays": "BARC.L", "lloyds": "LLOY.L", "vodafone": "VOD.L",
+    "tesco": "TSCO.L", "rolls-royce": "RR.L", "diageo": "DGE.L", "glaxosmithkline": "GSK.L",
+    "novonordisk": "NOVO-B.CO", "ericsson": "ERIC-B.ST", "spotify": "SPOT", "arm holdings": "ARM",
+    "palo alto networks": "PANW", "crowdstrike": "CRWD", "snowflake": "SNOW", "datadog": "DDOG",
+    "palantir": "PLTR", "zoom": "ZM", "square": "SQ", "block": "SQ", "paypal": "PYPL", "shopify": "SHOP",
+    "mercado libre": "MELI", "sea limited": "SE", "grab": "GRAB", "jio financial": "JIOFIN.NS",
+    "zomato": "ZOMATO.NS", "paytm": "PAYTM.NS", "swiggy": "SWIGGY.NS", "fedex": "FDX", "ups": "UPS",
+    "dhl": "DHL.DE", "maersk": "MAERSK-B.CO", "caterpillar": "CAT", "deere": "DE", "3m": "MMM",
+    "honeywell": "HON", "general electric": "GE", "raytheon": "RTX", "northrop grumman": "NOC",
+    "target": "TGT", "lowes": "LOW", "home depot": "HD", "cvs": "CVS", "unitedhealth": "UNH",
+    "johnson & johnson": "JNJ", "abbvie": "ABBV", "merck": "MRK", "eli lilly": "LLY", "goldman": "GS",
+    "blackstone": "BX", "charles schwab": "SCHW", "american express": "AXP", "visa": "V", "snap": "SNAP",
+    "pinterest": "PINS", "roblox": "RBLX", "unity": "U", "activision": "ATVI", "electronic arts": "EA",
+    "take-two": "TTWO", "capcom": "9697.T", "bandai namco": "7832.T"
 }
 
 COMPANY_DOMAINS = {
