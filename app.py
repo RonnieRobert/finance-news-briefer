@@ -370,7 +370,20 @@ def fetch_stock_history(ticker, period="6mo"):
                 "52w_high": ti.get("fiftyTwoWeekHigh", 0),
                 "52w_low": ti.get("fiftyTwoWeekLow", 0),
             }
-        except: info = {"name": ticker, "currency": "USD"}
+        except: 
+            # Fallback to fast_info which rarely gets blocked
+            try:
+                fi = t.fast_info
+                info = {
+                    "name": ticker,
+                    "currency": fi.get("currency", "USD"),
+                    "market_cap": fi.get("marketCap", 0),
+                    "pe_ratio": 0, # fast_info doesn't have PE reliably
+                    "52w_high": fi.get("yearHigh", 0),
+                    "52w_low": fi.get("yearLow", 0),
+                }
+            except:
+                info = {"name": ticker, "currency": "USD"}
         return hist, info
     except:
         return None, None
@@ -920,6 +933,11 @@ elif company:
         else:
             logo_img_html = f'<div style="width:72px;height:72px;border-radius:14px;background:linear-gradient(135deg,#419577,#F5AB41);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:#fff;font-family:Manrope,sans-serif;">{initial}</div>'
         full_name = stock_info.get("name", company)
+        # If yfinance failed and just returned the ticker as the name, use the original query instead
+        if ticker_symbol and full_name.upper() == ticker_symbol.upper() and company.upper() != ticker_symbol.upper():
+            # e.g., if full_name is "BLK" but company was "BlackRock", use "BlackRock"
+            full_name = company.title() if company.islower() else company
+
         sector = ""
         description = ""
         website = ""
@@ -933,6 +951,15 @@ elif company:
             hq_country = t_info.get("country", "")
             hq = ", ".join(filter(None, [hq_city, hq_country]))
         except: pass
+
+        # Fallback to Tavily if yfinance blocked the info request (very common)
+        if not description and os.getenv("TAVILY_API_KEY"):
+            try:
+                tvly = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+                res = tvly.search(query=f"{full_name} company overview business summary", search_depth="basic", max_results=1)
+                if res.get("results"):
+                    description = res["results"][0].get("content", "")[:280] + "..."
+            except: pass
 
         mcap = stock_info.get("market_cap", 0)
         mcap_str = f"${mcap/1e12:.2f}T" if mcap >= 1e12 else f"${mcap/1e9:.1f}B" if mcap >= 1e9 else f"${mcap/1e6:.0f}M" if mcap >= 1e6 else "—"
