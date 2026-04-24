@@ -1,5 +1,7 @@
 # QUANTUM AI Financial News Briefer 📟
 
+**[🌐 View Live Dashboard Here](https://finance-news-briefer-jacwxg3l6d22a9jhndzunq.streamlit.app/)**
+
 An advanced, multi-agent financial intelligence terminal built with Streamlit. This dashboard provides real-time quantitative and qualitative analysis on a massive database of global equities, private companies, and market sectors.
 
 ## 🚀 Features
