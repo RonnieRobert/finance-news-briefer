@@ -376,6 +376,9 @@ trending_news = fetch_trending_news()
 # =============================================================================
 # MAIN HEADER
 # =============================================================================
+if "active_view" not in st.session_state:
+    st.session_state.active_view = "Overview"
+
 st.markdown("""
 <div style="margin-bottom: 24px; margin-top: -16px; text-align: center;">
     <h1 style="font-family: 'Manrope', sans-serif; font-size: 46px; font-weight: 900; margin: 0; padding: 0; background: linear-gradient(135deg, #419577, #F5AB41); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.02em;">Financial News Briefer</h1>
